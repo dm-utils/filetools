@@ -1,0 +1,72 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Datamodder YAML Tools test documents
+# Usage: run through "Reindent / tidy" (Ctrl+Alt+Y) and compare against
+#        tests/golden_default.txt  (default profile) / golden_wide.txt (wide).
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+# ─── 1. Ragged indentation collapses to a consistent step ────────────────────
+# 3-space and 8-space indents normalise to 2 / 4 / ...; sequence items too.
+
+root:
+   child_a:
+        grandchild: 1
+   child_b: 2
+   list:
+     - one
+     - two
+
+tabbed_parent:
+	child: true
+	nested:
+		deep: 1
+
+
+# ─── 2. Comments and blank-line capping ─────────────────────────────────────
+# Full-line comments follow the nesting; >1 blank line is collapsed to 1.
+
+service:
+      # a note about the port
+      port:      8080
+
+
+
+      host: localhost
+
+
+# ─── 3. Block scalar bodies are left byte-for-byte ──────────────────────────
+# The `script: |` body keeps its own indentation and trailing spaces.
+
+job:
+        script: |
+              echo "hello"
+                indented line stays
+        shell: bash
+
+
+# ─── 4. Multiline flow collection is passed through untouched ───────────────
+
+matrix:
+    include: [
+        {os: linux,   node: 18},
+        {os: windows, node: 20},
+    ]
+    fast: true
+
+
+# ─── 5. Multiple documents: nesting resets at --- ──────────────────────────
+
+---
+first:
+       a: 1
+---
+second:
+       b: 2
+...
+
+
+# ─── 6. Trailing whitespace and a '#' inside a quoted value ────────────────
+
+colors:
+    accent: "#ff8800"
+    note: 'contains # not a comment'

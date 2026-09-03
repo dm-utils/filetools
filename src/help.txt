@@ -1,0 +1,44 @@
+DATAMODDER YAML TOOLS
+=====================
+A Notepad++ plugin for tidying, and later converting and validating, YAML.
+64-bit Notepad++ only.
+
+
+REINDENT / TIDY   (Ctrl+Alt+Y)
+------------------------------
+Normalises a block-style YAML document:
+
+  - leading tabs are expanded to spaces
+  - every nesting level is re-emitted at a consistent indent step (default 2),
+    no matter how (in)consistently the source was indented
+  - trailing whitespace is removed
+  - runs of blank lines are capped (default: 1)
+  - a single trailing newline is guaranteed
+  - nesting resets at document markers (--- and ...)
+
+Runs on the selection if there is one, otherwise on the whole document.
+
+Left untouched, never rewritten:
+
+  - the body of a block scalar ( key: |  or  key: > ) — kept byte-for-byte,
+    so if you move the key you may need to re-indent its body by hand
+  - lines inside an unclosed flow collection ( { ... }  or  [ ... ] )
+  - the text of comments and of quoted scalars (a '#' inside quotes is safe)
+
+
+NOT YET IMPLEMENTED
+-------------------
+Validate, YAML <-> JSON, sort keys, expand anchors and the tabbed Settings
+dialog (indent / keys / lint / profiles) are planned. See DESIGN.md in the
+repository.
+
+
+FORMAT ON SAVE
+--------------
+"Format on Save: On" runs Reindent / tidy automatically every time the file
+is saved. "Off" disables it. (Not persisted across restarts yet.)
+
+
+LICENSE
+-------
+MIT. https://github.com/dm-utils/yamltools
