@@ -14,13 +14,15 @@ call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 
 mkdir build\harness 2>nul
 
-set "YAMLLIB="
+set "YAMLFLAGS="
+set "YAMLSRC="
 if exist "vendor\libyaml\src\api.c" (
-    set "YAMLLIB=/I vendor /I vendor\libyaml\include /DYAML_DECLARE_STATIC /DHAVE_LIBYAML vendor\libyaml\src\*.c"
+    set "YAMLFLAGS=/I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML"
+    set "YAMLSRC=vendor\libyaml\src\*.c"
 )
 
-cl /nologo /O2 /EHsc /std:c++17 /utf-8 ^
-   src\test_harness.cpp src\yaml_tidy.cpp src\yaml_convert.cpp %YAMLLIB% ^
+cl /nologo /O2 /EHsc /std:c++17 /utf-8 %YAMLFLAGS% ^
+   src\test_harness.cpp src\yaml_tidy.cpp src\yaml_convert.cpp %YAMLSRC% ^
    /Fe:build\harness\test_harness.exe ^
    /Fo:build\harness\
 if errorlevel 1 ( echo Build failed & exit /b 1 )

@@ -19,6 +19,19 @@ for %%P in (default wide) do (
     )
 )
 
+:: -- convert tests (only when libyaml is vendored) --
+if exist "vendor\libyaml\src\api.c" (
+    for %%C in ("convert.yaml validate" "convert.yaml tojson" "convert.json toyaml") do (
+        for /f "tokens=1,2" %%a in (%%C) do (
+            .\build\harness\test_harness.exe tests\%%a %%b > tests\actual_%%b.txt
+            fc /a tests\golden_%%b.txt tests\actual_%%b.txt >nul
+            if errorlevel 1 ( echo MISMATCH: convert %%b & set FAIL=1 ) else ( echo OK: convert %%b )
+        )
+    )
+) else (
+    echo SKIP: convert tests ^(libyaml not vendored^)
+)
+
 if !FAIL! neq 0 (
     echo.
     echo Output regressed. If the new output is correct, review it and copy
@@ -27,5 +40,5 @@ if !FAIL! neq 0 (
 )
 
 echo.
-echo All reindent regression tests passed.
+echo All regression tests passed.
 exit /b 0

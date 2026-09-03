@@ -1,0 +1,7 @@
+name: demo
+port: 8080
+tags: [a, b]
+nested:
+  k: "1"
+  flag: true
+  empty:

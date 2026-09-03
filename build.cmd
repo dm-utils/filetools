@@ -20,15 +20,17 @@ rc.exe /nologo /fo build\settings.res src\settings.rc
 if errorlevel 1 ( echo Resource compile failed & exit /b 1 )
 
 :: -- libyaml (optional, see vendor/VENDORING.md) --
-set "YAMLLIB="
+set "YAMLFLAGS="
+set "YAMLSRC="
 if exist "vendor\libyaml\src\api.c" (
     echo Using vendored libyaml.
-    set "YAMLLIB=/I vendor /I vendor\libyaml\include /DYAML_DECLARE_STATIC /DHAVE_LIBYAML vendor\libyaml\src\*.c"
+    set "YAMLFLAGS=/I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML"
+    set "YAMLSRC=vendor\libyaml\src\*.c"
 )
 
-:: -- Compile and link --
-cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 ^
-   src\dllmain.cpp src\yaml_tidy.cpp src\yaml_convert.cpp %YAMLLIB% ^
+:: -- Compile and link (options before sources to avoid D9026) --
+cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 %YAMLFLAGS% ^
+   src\dllmain.cpp src\yaml_tidy.cpp src\yaml_convert.cpp %YAMLSRC% ^
    build\settings.res ^
    /Fe:build\YamlTools.dll ^
    /Fo:build\ ^
