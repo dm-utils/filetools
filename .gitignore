@@ -3,3 +3,4 @@ build_log*.txt
 release_staging/
 YamlTools.zip
 tests/actual_*.txt
+vendor/libyaml/

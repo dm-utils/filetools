@@ -19,9 +19,16 @@ mkdir build 2>nul
 rc.exe /nologo /fo build\settings.res src\settings.rc
 if errorlevel 1 ( echo Resource compile failed & exit /b 1 )
 
+:: -- libyaml (optional, see vendor/VENDORING.md) --
+set "YAMLLIB="
+if exist "vendor\libyaml\src\api.c" (
+    echo Using vendored libyaml.
+    set "YAMLLIB=/I vendor /I vendor\libyaml\include /DYAML_DECLARE_STATIC /DHAVE_LIBYAML vendor\libyaml\src\*.c"
+)
+
 :: -- Compile and link --
 cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 ^
-   src\dllmain.cpp src\yaml_tidy.cpp ^
+   src\dllmain.cpp src\yaml_tidy.cpp src\yaml_convert.cpp %YAMLLIB% ^
    build\settings.res ^
    /Fe:build\YamlTools.dll ^
    /Fo:build\ ^

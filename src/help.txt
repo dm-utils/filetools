@@ -26,11 +26,26 @@ Left untouched, never rewritten:
   - the text of comments and of quoted scalars (a '#' inside quotes is safe)
 
 
+VALIDATE  /  YAML <-> JSON        (data-only)
+--------------------------------------------
+These parse the document with libyaml, so comments and the original layout
+are not preserved — use them for structural work, not tidying.
+
+  Validate      reports the first syntax error as "line L, col C: ...",
+                or "Geldige YAML."
+  YAML -> JSON  converts to compact JSON. Multiple documents become a JSON
+                array. Anchors/aliases are not yet supported.
+  JSON -> YAML  re-emits JSON as block-style YAML.
+
+libyaml is not checked in. Until it is vendored (see vendor/VENDORING.md)
+these three items just report that it is missing. "Reindent / tidy" works
+regardless.
+
+
 NOT YET IMPLEMENTED
 -------------------
-Validate, YAML <-> JSON, sort keys, expand anchors and the tabbed Settings
-dialog (indent / keys / lint / profiles) are planned. See DESIGN.md in the
-repository.
+Sort keys, expand anchors, minify/flow, lint and the tabbed Settings dialog
+(indent / keys / lint / profiles) are planned. See DESIGN.md in the repository.
 
 
 FORMAT ON SAVE
