@@ -2,13 +2,13 @@
 
 #include "resource.h"
 
-2 RT_MANIFEST "src\\YamlTools.manifest"
+2 RT_MANIFEST "src\\FileTools.manifest"
 
 // ─── version info (Notepad++ plugin list / update checks) ────────────────────
 
 1 VERSIONINFO
-FILEVERSION     YAMLTOOLS_VERSION_COMMA
-PRODUCTVERSION  YAMLTOOLS_VERSION_COMMA
+FILEVERSION     FILETOOLS_VERSION_COMMA
+PRODUCTVERSION  FILETOOLS_VERSION_COMMA
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
 FILEOS          0x40004L
@@ -20,13 +20,13 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName",      "Datamodder"
-            VALUE "FileDescription",  "Datamodder YAML Tools for Notepad++"
-            VALUE "FileVersion",      YAMLTOOLS_VERSION
-            VALUE "InternalName",     "YamlTools"
+            VALUE "FileDescription",  "Datamodder File Tools for Notepad++"
+            VALUE "FileVersion",      FILETOOLS_VERSION
+            VALUE "InternalName",     "FileTools"
             VALUE "LegalCopyright",   "Copyright (c) 2026 Datamodder"
-            VALUE "OriginalFilename", "YamlTools.dll"
-            VALUE "ProductName",      "Datamodder YAML Tools"
-            VALUE "ProductVersion",   YAMLTOOLS_VERSION
+            VALUE "OriginalFilename", "FileTools.dll"
+            VALUE "ProductName",      "Datamodder File Tools"
+            VALUE "ProductVersion",   FILETOOLS_VERSION
         END
     END
     BLOCK "VarFileInfo"

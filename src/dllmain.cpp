@@ -3,6 +3,7 @@
 #include <string>
 #include "yaml_tidy.h"
 #include "yaml_convert.h"
+#include "json_tools.h"
 #include "settings.h"
 #include "resource.h"
 
@@ -58,22 +59,28 @@ static HINSTANCE   g_module = nullptr;
 static DWORD       g_save_tick = 0;
 static ShortcutKey g_sk_tidy = { true, true, false, 'Y' };   // Ctrl+Alt+Y
 
-static const int   NFUNCS = 12;
+static const int   NFUNCS = 18;
 static FuncItem    g_funcs[NFUNCS] = {};
 
 // Slot layout (flat menu — submenus come with the Settings milestone):
-//  0  Reindent / tidy (Ctrl+Alt+Y)   line-based, comments preserved
+//  0  Reindent / tidy (Ctrl+Alt+Y)   YAML, line-based, comments preserved
 //  1  ---
-//  2  Validate                       libyaml
+//  2  Validate                       YAML/JSON, libyaml
 //  3  YAML -> JSON                    libyaml, data-only
 //  4  JSON -> YAML                    libyaml, data-only
 //  5  ---
-//  6  Format on Save: On
-//  7  Format on Save: Off
-//  8  ---
-//  9  Settings...                     (stub until the tabbed dialog)
-//  10 About
-//  11 Help
+//  6  JSON: Pretty-print             libyaml
+//  7  JSON: Minify                   libyaml
+//  8  JSON: Sort keys                libyaml
+//  9  JSON: Escape as string         pure string op
+//  10 JSON: Unescape string          pure string op
+//  11 ---
+//  12 Format on Save: On
+//  13 Format on Save: Off
+//  14 ---
+//  15 Settings...                    (stub until the tabbed dialog)
+//  16 About
+//  17 Help
 
 // ─── editor helpers ─────────────────────────────────────────────────────────
 
@@ -135,7 +142,7 @@ static std::string current_src() {
 }
 
 static void msg(const std::wstring& w, UINT icon) {
-    MessageBoxW(g_npp._nppHandle, w.c_str(), L"Datamodder YAML Tools", MB_OK | icon);
+    MessageBoxW(g_npp._nppHandle, w.c_str(), L"Datamodder File Tools", MB_OK | icon);
 }
 static std::wstring widen(const std::string& s) {
     if (s.empty()) return L"";
@@ -155,13 +162,8 @@ static void cmd_validate() {
 }
 
 // Replace the buffer/selection with fn(src), unless fn returned an error
-// (result begins with SOH "\001") or libyaml is missing.
-static void run_convert(std::string (*fn)(const std::string&)) {
-    if (!yaml_convert_available()) {
-        std::string note = fn("");
-        msg(widen(note.empty() || note[0] != '\001' ? note : note.substr(1)), MB_ICONWARNING);
-        return;
-    }
+// (result begins with SOH "\001").
+static void run_string_op(std::string (*fn)(const std::string&)) {
     HWND sci = current_editor();
     int ss = (int)SendMessage(sci, SCI_GETSELECTIONSTART, 0, 0);
     int se = (int)SendMessage(sci, SCI_GETSELECTIONEND,   0, 0);
@@ -175,22 +177,37 @@ static void run_convert(std::string (*fn)(const std::string&)) {
     if (sel) replace_sel(r); else set_text(r);
 }
 
+// Same, but first check that libyaml was compiled in.
+static void run_convert(std::string (*fn)(const std::string&)) {
+    if (!yaml_convert_available()) {
+        std::string note = fn("");
+        msg(widen(note.empty() || note[0] != '\001' ? note : note.substr(1)), MB_ICONWARNING);
+        return;
+    }
+    run_string_op(fn);
+}
+
 static void cmd_yaml_to_json() { run_convert(yaml_to_json); }
 static void cmd_json_to_yaml() { run_convert(json_to_yaml); }
+static void cmd_json_pretty()   { run_convert(json_pretty); }
+static void cmd_json_minify()   { run_convert(json_minify); }
+static void cmd_json_sort()     { run_convert(json_sort_keys); }
+static void cmd_json_escape()   { run_string_op(json_escape); }
+static void cmd_json_unescape() { run_string_op(json_unescape); }
 static void cmd_fos_on()  { g_settings.format_on_save = true; }
 static void cmd_fos_off() { g_settings.format_on_save = false; }
 static void cmd_settings() {
     MessageBoxW(g_npp._nppHandle,
         L"De instellingen-UI (indent, keys, lint, profielen) volgt.\n"
         L"Voorlopig: 2 spaties per niveau, tabs -> spaties, max 1 lege regel.",
-        L"Datamodder YAML Tools", MB_OK | MB_ICONINFORMATION);
+        L"Datamodder File Tools", MB_OK | MB_ICONINFORMATION);
 }
 static void cmd_about() {
     MessageBoxW(g_npp._nppHandle,
-        L"Datamodder YAML Tools  " YAMLTOOLS_VERSION_W L"\n\n"
-        L"Reindent, tidy and (later) convert/validate YAML.\n"
+        L"Datamodder File Tools  " FILETOOLS_VERSION_W L"\n\n"
+        L"Tidy, validate and convert YAML and JSON. (CSV next.)\n"
         L"64-bit Notepad++ only.  MIT.\n"
-        L"https://github.com/dm-utils/yamltools",
+        L"https://github.com/dm-utils/filetools",
         L"About", MB_OK | MB_ICONINFORMATION);
 }
 static void cmd_help() {
@@ -206,7 +223,7 @@ static void cmd_help() {
 
 extern "C" {
 
-__declspec(dllexport) const wchar_t* getName() { return L"Datamodder YAML Tools"; }
+__declspec(dllexport) const wchar_t* getName() { return L"Datamodder File Tools"; }
 
 __declspec(dllexport) void setInfo(NppData d) { g_npp = d; }
 
@@ -243,12 +260,18 @@ BOOL APIENTRY DllMain(HINSTANCE h, DWORD reason, LPVOID) {
         init_func(3,  L"YAML \x2192 JSON",             cmd_yaml_to_json);
         init_func(4,  L"JSON \x2192 YAML",             cmd_json_to_yaml);
         init_func(5,  L"-",                            nullptr);
-        init_func(6,  L"Format on Save: On",           cmd_fos_on);
-        init_func(7,  L"Format on Save: Off",          cmd_fos_off);
-        init_func(8,  L"-",                            nullptr);
-        init_func(9,  L"Settings...",                  cmd_settings);
-        init_func(10, L"About",                        cmd_about);
-        init_func(11, L"Help",                         cmd_help);
+        init_func(6,  L"JSON: Pretty-print",           cmd_json_pretty);
+        init_func(7,  L"JSON: Minify",                 cmd_json_minify);
+        init_func(8,  L"JSON: Sort keys",              cmd_json_sort);
+        init_func(9,  L"JSON: Escape as string",       cmd_json_escape);
+        init_func(10, L"JSON: Unescape string",        cmd_json_unescape);
+        init_func(11, L"-",                            nullptr);
+        init_func(12, L"Format on Save: On",           cmd_fos_on);
+        init_func(13, L"Format on Save: Off",          cmd_fos_off);
+        init_func(14, L"-",                            nullptr);
+        init_func(15, L"Settings...",                  cmd_settings);
+        init_func(16, L"About",                        cmd_about);
+        init_func(17, L"Help",                         cmd_help);
     }
     return TRUE;
 }

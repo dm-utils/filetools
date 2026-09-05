@@ -1,12 +1,12 @@
-# Datamodder YAML Tools — design
+# Datamodder File Tools — design
 
 Same build style as the FormatSQL plugin: Win32 C++, 64-bit, self-declared
 Notepad++ ABI (no SDK), `g_funcs[]` menu, tabbed Settings with INI+JSON
 persistence, `apply_transform` pattern, console regression harness,
 `build.cmd` deploy, version bump in `settings.rc`.
 
-Repo `dm-utils/yamltools`, plugin folder `YamlTools`, display name
-"Datamodder YAML Tools", MIT.
+Repo `dm-utils/filetools`, plugin folder `FileTools`, display name
+"Datamodder File Tools", MIT.
 
 ## Why this plugin
 
@@ -107,7 +107,7 @@ About/Help · multi-document (`---`) from day one.
 
 ## Release / distribution
 
-Same as FormatSQL: tag `vX.Y.Z.W`, GitHub Release with a `YamlTools.zip`
+Same as FormatSQL: tag `vX.Y.Z.W`, GitHub Release with a `FileTools.zip`
 (DLL + `help.txt` at zip root), version in `settings.rc` must match. To get an
 in-app **Update** button, submit an entry to
 `notepad-plus-plus/nppPluginList` (`src/pl.x64.json`: `folder-name`,

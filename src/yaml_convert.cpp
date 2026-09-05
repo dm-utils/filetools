@@ -1,10 +1,15 @@
 #include "yaml_convert.h"
+#include "json_tools.h"
 
 // Error convention for yaml_to_json / json_to_yaml: a result starting with the
 // SOH byte "\001" is an error message, not a converted document. The caller
 // shows it in a message box instead of replacing the buffer. yaml_validate
 // keeps its own convention: "" means valid, anything else is the problem.
 #define ERRMARK "\001"
+
+// YAML -> JSON delegates to the shared json_tools value-tree engine (pretty
+// output, multi-document -> array). It handles the "no libyaml" case itself.
+std::string yaml_to_json(const std::string& src) { return jsontools::reserialize(src, 2, false); }
 
 #ifndef HAVE_LIBYAML
 
@@ -15,7 +20,6 @@ static const char* kNote =
 
 bool        yaml_convert_available()          { return false; }
 std::string yaml_validate(const std::string&) { return kNote; }
-std::string yaml_to_json(const std::string&)  { return ERRMARK + std::string(kNote); }
 std::string json_to_yaml(const std::string&)  { return ERRMARK + std::string(kNote); }
 
 #else
@@ -38,51 +42,6 @@ std::string err_at(yaml_parser_t& p) {
     return buf;
 }
 
-void json_escape(const std::string& s, std::string& out) {
-    out += '"';
-    for (unsigned char c : s) {
-        switch (c) {
-        case '"':  out += "\\\""; break;
-        case '\\': out += "\\\\"; break;
-        case '\n': out += "\\n";  break;
-        case '\r': out += "\\r";  break;
-        case '\t': out += "\\t";  break;
-        default:
-            if (c < 0x20) { char b[8]; std::snprintf(b, sizeof b, "\\u%04x", c); out += b; }
-            else out += (char)c;
-        }
-    }
-    out += '"';
-}
-
-// Plain (unquoted) YAML scalar -> JSON token. Quoted scalars are always strings.
-void plain_scalar_to_json(const std::string& v, std::string& out) {
-    if (v.empty() || v == "~" || v == "null" || v == "Null" || v == "NULL") { out += "null"; return; }
-    if (v == "true"  || v == "True"  || v == "TRUE")  { out += "true";  return; }
-    if (v == "false" || v == "False" || v == "FALSE") { out += "false"; return; }
-
-    auto looks_number = [](const std::string& t) {
-        size_t i = 0;
-        if (i < t.size() && (t[i] == '-' || t[i] == '+')) ++i;
-        bool digit = false, dot = false, exp = false;
-        for (; i < t.size(); ++i) {
-            char c = t[i];
-            if (std::isdigit((unsigned char)c)) { digit = true; continue; }
-            if (c == '.' && !dot && !exp) { dot = true; continue; }
-            if ((c == 'e' || c == 'E') && digit && !exp) {
-                exp = true;
-                if (i + 1 < t.size() && (t[i + 1] == '-' || t[i + 1] == '+')) ++i;
-                continue;
-            }
-            return false;
-        }
-        return digit;
-    };
-    if (looks_number(v)) out += v;
-    else json_escape(v, out);
-}
-
-struct Frame { int kind; bool first; bool expect_key; };  // 1 map, 2 seq
 
 } // namespace
 
@@ -100,99 +59,6 @@ std::string yaml_validate(const std::string& src) {
     }
     yaml_parser_delete(&p);
     return problem;
-}
-
-std::string yaml_to_json(const std::string& src) {
-    yaml_parser_t p;
-    if (!yaml_parser_initialize(&p)) return ERRMARK "kan de YAML-parser niet initialiseren";
-    yaml_parser_set_input_string(&p, (const unsigned char*)src.data(), src.size());
-
-    std::string out, err;
-    std::vector<Frame> st;
-    std::vector<std::string> docs;
-    yaml_event_t ev;
-
-    auto before_value = [&](bool& is_key) {
-        is_key = false;
-        if (st.empty()) return;
-        Frame& f = st.back();
-        if (f.kind == 2) { if (!f.first) out += ','; f.first = false; }
-        else if (f.kind == 1 && f.expect_key) {
-            if (!f.first) out += ',';
-            f.first = false;
-            is_key = true;
-        }
-    };
-    auto after_value = [&]() {
-        if (!st.empty() && st.back().kind == 1)
-            st.back().expect_key = true;
-    };
-
-    for (;;) {
-        if (!yaml_parser_parse(&p, &ev)) { err = err_at(p); break; }
-        bool stop = false;
-
-        switch (ev.type) {
-        case YAML_STREAM_START_EVENT:   break;
-        case YAML_STREAM_END_EVENT:     stop = true; break;
-        case YAML_DOCUMENT_START_EVENT: out.clear(); st.clear(); break;
-        case YAML_DOCUMENT_END_EVENT:   docs.push_back(out); break;
-
-        case YAML_ALIAS_EVENT:
-            err = "anchors/aliases worden nog niet ondersteund bij JSON-conversie";
-            stop = true;
-            break;
-
-        case YAML_SCALAR_EVENT: {
-            bool is_key = false;
-            before_value(is_key);
-            std::string v((const char*)ev.data.scalar.value, ev.data.scalar.length);
-            if (is_key) {
-                json_escape(v, out);
-                out += ':';
-                st.back().expect_key = false;
-            } else {
-                if (ev.data.scalar.style == YAML_PLAIN_SCALAR_STYLE) plain_scalar_to_json(v, out);
-                else json_escape(v, out);
-                after_value();
-            }
-            break;
-        }
-        case YAML_SEQUENCE_START_EVENT: {
-            bool is_key = false; before_value(is_key);
-            if (is_key) { err = "complexe keys worden niet ondersteund"; stop = true; break; }
-            out += '[';
-            st.push_back({2, true, false});
-            break;
-        }
-        case YAML_SEQUENCE_END_EVENT:
-            out += ']'; st.pop_back(); after_value();
-            break;
-        case YAML_MAPPING_START_EVENT: {
-            bool is_key = false; before_value(is_key);
-            if (is_key) { err = "complexe keys worden niet ondersteund"; stop = true; break; }
-            out += '{';
-            st.push_back({1, true, true});
-            break;
-        }
-        case YAML_MAPPING_END_EVENT:
-            out += '}'; st.pop_back(); after_value();
-            break;
-        default: break;
-        }
-
-        yaml_event_delete(&ev);
-        if (stop) break;
-    }
-    yaml_parser_delete(&p);
-
-    if (!err.empty()) return ERRMARK + err;
-    if (docs.empty()) return "null";
-    if (docs.size() == 1) return docs[0];
-    std::string arr = "[";
-    for (size_t i = 0; i < docs.size(); ++i) { if (i) arr += ','; arr += docs[i]; }
-    arr += ']';
-    return arr;
 }
 
 std::string json_to_yaml(const std::string& src) {

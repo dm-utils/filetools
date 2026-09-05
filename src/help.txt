@@ -1,59 +1,66 @@
-DATAMODDER YAML TOOLS
+DATAMODDER FILE TOOLS
 =====================
-A Notepad++ plugin for tidying, and later converting and validating, YAML.
-64-bit Notepad++ only.
+A Notepad++ plugin for tidying, validating and converting text data formats.
+YAML and JSON now; CSV is next. 64-bit Notepad++ only.
+
+Every command runs on the selection if there is one, otherwise on the whole
+document.
 
 
-REINDENT / TIDY   (Ctrl+Alt+Y)
+REINDENT / TIDY   (Ctrl+Alt+Y)          YAML, comments preserved
 ------------------------------
 Normalises a block-style YAML document:
 
-  - leading tabs are expanded to spaces
-  - every nesting level is re-emitted at a consistent indent step (default 2),
-    no matter how (in)consistently the source was indented
-  - trailing whitespace is removed
-  - runs of blank lines are capped (default: 1)
-  - a single trailing newline is guaranteed
-  - nesting resets at document markers (--- and ...)
+  - leading tabs expanded to spaces
+  - every nesting level re-emitted at a consistent indent step (default 2)
+  - trailing whitespace removed
+  - runs of blank lines capped (default: 1)
+  - a single trailing newline
+  - nesting reset at document markers (--- and ...)
 
-Runs on the selection if there is one, otherwise on the whole document.
-
-Left untouched, never rewritten:
-
-  - the body of a block scalar ( key: |  or  key: > ) — kept byte-for-byte,
-    so if you move the key you may need to re-indent its body by hand
-  - lines inside an unclosed flow collection ( { ... }  or  [ ... ] )
-  - the text of comments and of quoted scalars (a '#' inside quotes is safe)
+Left untouched, never rewritten: the body of a block scalar ( key: | / > ),
+lines inside an unclosed flow collection ( { } / [ ] ), and the text of
+comments and quoted scalars.
 
 
-VALIDATE  /  YAML <-> JSON        (data-only)
---------------------------------------------
-These parse the document with libyaml, so comments and the original layout
-are not preserved — use them for structural work, not tidying.
+VALIDATE  /  YAML <-> JSON               data-only (libyaml)
+-------------------------
+Parsed with libyaml, so comments and layout are not preserved.
 
-  Validate      reports the first syntax error as "line L, col C: ...",
-                or "Geldige YAML."
-  YAML -> JSON  converts to compact JSON. Multiple documents become a JSON
-                array. Anchors/aliases are not yet supported.
-  JSON -> YAML  re-emits JSON as block-style YAML.
-
-libyaml is not checked in. Until it is vendored (see vendor/VENDORING.md)
-these three items just report that it is missing. "Reindent / tidy" works
-regardless.
+  Validate      first syntax error as "regel R, kolom K: ...", or "Geldige YAML."
+  YAML -> JSON  pretty JSON (2-space). Multiple documents -> a JSON array.
+                Anchors/aliases are not supported yet.
+  JSON -> YAML  re-emit as block-style YAML.
 
 
-NOT YET IMPLEMENTED
--------------------
-Sort keys, expand anchors, minify/flow, lint and the tabbed Settings dialog
-(indent / keys / lint / profiles) are planned. See DESIGN.md in the repository.
+JSON TOOLS                              data-only (libyaml)
+----------
+  Pretty-print  re-emit with 2-space indent
+  Minify        re-emit compact, one line
+  Sort keys     pretty, object keys sorted A->Z recursively (array order kept)
+
+Because the engine is a YAML parser, mildly non-standard JSON (a trailing
+comma, unquoted keys) is accepted and cleaned up rather than rejected.
+
+
+JSON: ESCAPE / UNESCAPE STRING          pure text, no parsing
+-----------------------------
+  Escape as string   wraps the selection as a JSON string literal ("...\n...")
+  Unescape string    turns a "..." literal back into raw text
 
 
 FORMAT ON SAVE
 --------------
-"Format on Save: On" runs Reindent / tidy automatically every time the file
-is saved. "Off" disables it. (Not persisted across restarts yet.)
+"Format on Save: On" runs Reindent / tidy on every save. "Off" disables it.
+(Not persisted across restarts yet.)
+
+
+NOT YET IMPLEMENTED
+-------------------
+CSV tools, YAML sort keys / anchor expansion / lint, and the tabbed Settings
+dialog (indent / keys / lint / profiles). See DESIGN.md in the repository.
 
 
 LICENSE
 -------
-MIT. https://github.com/dm-utils/yamltools
+MIT. https://github.com/dm-utils/filetools

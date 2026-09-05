@@ -1,6 +1,6 @@
-# Datamodder YAML Tools (YamlTools)
+# Datamodder File Tools (FileTools)
 
-A Notepad++ plugin for tidying, and later converting and validating, YAML.
+A Notepad++ plugin for tidying, validating and converting text data formats (YAML, JSON; CSV next).
 
 **64-bit Notepad++ only.**
 
@@ -30,8 +30,8 @@ Visual Studio C++ build tools required. From an **elevated** terminal:
 build.cmd
 ```
 
-Compiles the plugin, closes Notepad++, deploys `YamlTools.dll` + `help.txt`
-to `C:\Program Files\Notepad++\plugins\YamlTools`, and restarts Notepad++.
+Compiles the plugin, closes Notepad++, deploys `FileTools.dll` + `help.txt`
+to `C:\Program Files\Notepad++\plugins\FileTools`, and restarts Notepad++.
 
 ## Test
 
@@ -51,7 +51,7 @@ build\harness\test_harness.exe test_docs.yaml wide    > tests\golden_wide.txt
 ## Layout
 
 ```
-src/yaml_tidy.{h,cpp}   the reindenter — pure, no Windows deps, unit-tested
+src/yaml_tidy.{h,cpp}   the YAML reindenter — pure, no Windows deps, unit-tested
 src/dllmain.cpp         Notepad++ plugin glue (self-declared NPP ABI)
 src/settings.h          YamlSettings (defaults only for now)
 src/settings.rc         version resource + manifest

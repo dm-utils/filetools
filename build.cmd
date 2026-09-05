@@ -30,9 +30,9 @@ if exist "vendor\libyaml\src\api.c" (
 
 :: -- Compile and link (options before sources to avoid D9026) --
 cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 %YAMLFLAGS% ^
-   src\dllmain.cpp src\yaml_tidy.cpp src\yaml_convert.cpp %YAMLSRC% ^
+   src\dllmain.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp %YAMLSRC% ^
    build\settings.res ^
-   /Fe:build\YamlTools.dll ^
+   /Fe:build\FileTools.dll ^
    /Fo:build\ ^
    /link user32.lib shell32.lib
 if errorlevel 1 ( echo Build failed & exit /b 1 )
@@ -41,10 +41,11 @@ if errorlevel 1 ( echo Build failed & exit /b 1 )
 taskkill /f /im notepad++.exe >nul 2>&1
 ping -n 2 127.0.0.1 >nul 2>&1
 
-:: -- Deploy DLL --
-set DST=C:\Program Files\Notepad++\plugins\YamlTools
+:: -- Deploy DLL (and remove the old YamlTools plugin folder) --
+rmdir /s /q "C:\Program Files\Notepad++\plugins\YamlTools" 2>nul
+set DST=C:\Program Files\Notepad++\plugins\FileTools
 if not exist "%DST%" mkdir "%DST%"
-copy /y "build\YamlTools.dll" "%DST%\YamlTools.dll"
+copy /y "build\FileTools.dll" "%DST%\FileTools.dll"
 if errorlevel 1 ( echo Copy failed & exit /b 1 )
 copy /y "src\help.txt" "%DST%\help.txt"
 if errorlevel 1 ( echo Help file copy failed & exit /b 1 )
