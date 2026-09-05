@@ -52,6 +52,7 @@ std::string json_minify(const std::string& src)    { return jsontools::reseriali
 std::string json_sort_keys(const std::string& src) { return jsontools::reserialize(src, 2, true); }
 std::string json_escape(const std::string& src)    { return jsontools::escape_string(src); }
 std::string json_unescape(const std::string& src)  { return jsontools::unescape_string(src); }
+std::string json_to_csv(const std::string& src)    { return jsontools::to_csv(src); }
 
 // ── escape / unescape: pure, always available ──────────────────────────────
 
@@ -116,6 +117,9 @@ std::string jsontools::unescape_string(const std::string& src) {
 #ifndef HAVE_LIBYAML
 
 std::string jsontools::reserialize(const std::string&, int, bool) {
+    return ERRMARK "libyaml is niet meegecompileerd. Zie vendor/VENDORING.md.";
+}
+std::string jsontools::to_csv(const std::string&) {
     return ERRMARK "libyaml is niet meegecompileerd. Zie vendor/VENDORING.md.";
 }
 
@@ -266,6 +270,70 @@ std::string jsontools::reserialize(const std::string& src, int indent, bool sort
     } else {
         JV wrap; wrap.t = JV::Arr; wrap.arr = std::move(docs);
         serialize(wrap, out, indent, 0, sort_keys);
+    }
+    return out;
+}
+
+namespace {
+
+void csv_cell(const JV& v, std::string& out) {
+    std::string raw;
+    switch (v.t) {
+    case JV::Null: break;
+    case JV::Bool: raw = v.b ? "true" : "false"; break;
+    case JV::Num:  raw = v.s; break;
+    case JV::Str:  raw = v.s; break;
+    default: serialize(v, raw, 0, 0, false); break;   // nested -> compact JSON in the cell
+    }
+    bool q = false;
+    for (char c : raw) if (c == ',' || c == '"' || c == '\n' || c == '\r') { q = true; break; }
+    if (!q) { out += raw; return; }
+    out += '"';
+    for (char c : raw) { if (c == '"') out += '"'; out += c; }
+    out += '"';
+}
+
+} // namespace
+
+std::string jsontools::to_csv(const std::string& src) {
+    yaml_parser_t p;
+    if (!yaml_parser_initialize(&p)) return ERRMARK "kan de parser niet initialiseren";
+    yaml_parser_set_input_string(&p, (const unsigned char*)src.data(), src.size());
+    yaml_document_t doc;
+    bool ok = yaml_parser_load(&p, &doc) != 0;
+    std::string perr = ok ? "" : err_at(p);
+    JV root;
+    if (ok) { ok = node_to_jv(&doc, yaml_document_get_root_node(&doc), root, 0); yaml_document_delete(&doc); }
+    yaml_parser_delete(&p);
+    if (!perr.empty()) return ERRMARK + perr;
+
+    if (root.t != JV::Arr)
+        return ERRMARK "JSON -> CSV verwacht een array (van objecten).";
+
+    std::vector<std::string> cols;                    // key union, first-seen order
+    for (const JV& row : root.arr)
+        if (row.t == JV::Obj)
+            for (const auto& kv : row.obj)
+                if (std::find(cols.begin(), cols.end(), kv.first) == cols.end())
+                    cols.push_back(kv.first);
+
+    std::string out;
+    if (cols.empty()) {                               // array of scalars -> one column
+        out += "value\r\n";
+        for (const JV& v : root.arr) { csv_cell(v, out); out += "\r\n"; }
+        return out;
+    }
+    for (size_t c = 0; c < cols.size(); ++c) { if (c) out += ','; JV k; k.t = JV::Str; k.s = cols[c]; csv_cell(k, out); }
+    out += "\r\n";
+    for (const JV& row : root.arr) {
+        for (size_t c = 0; c < cols.size(); ++c) {
+            if (c) out += ',';
+            const JV* cell = nullptr;
+            if (row.t == JV::Obj)
+                for (const auto& kv : row.obj) if (kv.first == cols[c]) { cell = &kv.second; break; }
+            if (cell) csv_cell(*cell, out);
+        }
+        out += "\r\n";
     }
     return out;
 }

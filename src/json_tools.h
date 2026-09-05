@@ -13,9 +13,12 @@ std::string json_sort_keys(const std::string& src);   // pretty + object keys so
 std::string json_escape(const std::string& src);      // selection -> "…" (JSON string literal)
 std::string json_unescape(const std::string& src);    // "…" -> raw text
 
+std::string json_to_csv(const std::string& src);      // array of objects -> CSV (header = key union)
+
 namespace jsontools {
 // Shared engine: indent <= 0 => compact. Multiple YAML docs become a JSON array.
 std::string reserialize(const std::string& src, int indent, bool sort_keys);
 std::string escape_string(const std::string& src);
 std::string unescape_string(const std::string& src);
+std::string to_csv(const std::string& src);      // needs libyaml
 }

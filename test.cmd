@@ -19,22 +19,39 @@ for %%P in (default wide) do (
     )
 )
 
-:: -- pure string ops (always) --
-for %%C in ("escape_in.txt jesc" "golden_jesc.txt junesc") do (
-    for /f "tokens=1,2" %%a in (%%C) do (
-        .\build\harness\test_harness.exe tests\%%a %%b > tests\actual_%%b.txt
-        fc /a tests\golden_%%b.txt tests\actual_%%b.txt >nul
-        if errorlevel 1 ( echo MISMATCH: %%b & set FAIL=1 ) else ( echo OK: %%b )
+:: -- pure ops (always): op | fixture | golden-suffix | extra-arg --
+for %%C in (
+    "jesc     escape_in.txt   jesc"
+    "junesc   golden_jesc.txt junesc"
+    "calign   csv_in.csv      calign"
+    "ccompact golden_calign.txt ccompact"
+    "ccomma   csv_in.csv      ccomma"
+    "csort    csv_in.csv      csort    1"
+    "ctrans   csv_in.csv      ctrans"
+    "ctojson  csv_in.csv      ctojson"
+) do (
+    for /f "tokens=1,2,3,4" %%a in (%%C) do (
+        .\build\harness\test_harness.exe tests\%%b %%a %%d > tests\actual_%%c.txt
+        fc /a tests\golden_%%c.txt tests\actual_%%c.txt >nul
+        if errorlevel 1 ( echo MISMATCH: %%c & set FAIL=1 ) else ( echo OK: %%c )
     )
 )
 
 :: -- libyaml-backed ops (only when libyaml is vendored) --
 if exist "vendor\libyaml\src\api.c" (
-    for %%C in ("convert.yaml validate" "convert.yaml tojson" "convert.json toyaml" "json_in.json jpretty" "json_in.json jmin" "json_in.json jsort") do (
-        for /f "tokens=1,2" %%a in (%%C) do (
-            .\build\harness\test_harness.exe tests\%%a %%b > tests\actual_%%b.txt
-            fc /a tests\golden_%%b.txt tests\actual_%%b.txt >nul
-            if errorlevel 1 ( echo MISMATCH: %%b & set FAIL=1 ) else ( echo OK: %%b )
+    for %%C in (
+        "validate convert.yaml validate"
+        "tojson   convert.yaml tojson"
+        "toyaml   convert.json toyaml"
+        "jpretty  json_in.json jpretty"
+        "jmin     json_in.json jmin"
+        "jsort    json_in.json jsort"
+        "jtocsv   arr.json     jtocsv"
+    ) do (
+        for /f "tokens=1,2,3" %%a in (%%C) do (
+            .\build\harness\test_harness.exe tests\%%b %%a > tests\actual_%%c.txt
+            fc /a tests\golden_%%c.txt tests\actual_%%c.txt >nul
+            if errorlevel 1 ( echo MISMATCH: %%c & set FAIL=1 ) else ( echo OK: %%c )
         )
     )
 ) else (

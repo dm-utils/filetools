@@ -4,7 +4,7 @@ A Notepad++ plugin for tidying, validating and converting text data formats (YAM
 
 **64-bit Notepad++ only.**
 
-## Status: early scaffold
+## Status
 
 Working:
 
@@ -14,6 +14,8 @@ Working:
   Block-scalar bodies, unclosed flow collections and quoted text are left
   untouched.
 - **Format on Save** (On / Off, not yet persisted).
+- **JSON**: pretty-print, minify, sort keys, escape/unescape, YAML ↔ JSON.
+- **CSV**: align columns, compact, delimiter convert, sort by column, transpose, CSV ↔ JSON.
 
 Stubbed / planned — see [DESIGN.md](DESIGN.md):
 

@@ -49,6 +49,23 @@ JSON: ESCAPE / UNESCAPE STRING          pure text, no parsing
   Unescape string    turns a "..." literal back into raw text
 
 
+CSV TOOLS                              pure text (RFC-4180-ish)
+---------
+Delimiter is sniffed from the first line ( , ; tab | ). Quoted fields, ""
+escapes and newlines inside quotes are handled. CR/LF style is preserved.
+
+  Align columns    pad every field so columns line up (a *view* — the padding
+                   becomes real data on save, so run Compact first)
+  Compact          undo Align: trim field padding, minimal quoting
+  To comma / To semicolon delimiter
+  Sort by column at cursor   stable sort of the data rows by the field the
+                             caret is in; header row kept on top; numeric when
+                             the whole column is numbers
+  Transpose        swap rows and columns
+  CSV -> JSON      first row = keys, the rest -> an array of objects
+  JSON -> CSV      an array of objects -> CSV (header = union of keys)
+
+
 FORMAT ON SAVE
 --------------
 "Format on Save: On" runs Reindent / tidy on every save. "Off" disables it.
@@ -57,8 +74,8 @@ FORMAT ON SAVE
 
 NOT YET IMPLEMENTED
 -------------------
-CSV tools, YAML sort keys / anchor expansion / lint, and the tabbed Settings
-dialog (indent / keys / lint / profiles). See DESIGN.md in the repository.
+YAML sort keys / anchor expansion / lint, CSV filter rows, and the tabbed
+Settings dialog (indent / keys / lint / profiles). See DESIGN.md.
 
 
 LICENSE

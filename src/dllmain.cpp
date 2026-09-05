@@ -4,6 +4,7 @@
 #include "yaml_tidy.h"
 #include "yaml_convert.h"
 #include "json_tools.h"
+#include "csv_tools.h"
 #include "settings.h"
 #include "resource.h"
 
@@ -44,6 +45,9 @@ enum {
     SCI_GETSELECTIONSTART = 2143,
     SCI_GETSELECTIONEND   = 2145,
     SCI_REPLACESEL        = 2170,
+    SCI_GETCURRENTPOS     = 2008,
+    SCI_LINEFROMPOSITION  = 2166,
+    SCI_POSITIONFROMLINE  = 2167,
 };
 enum {
     NPPM_GETCURRENTSCINTILLA = 2028,
@@ -59,28 +63,37 @@ static HINSTANCE   g_module = nullptr;
 static DWORD       g_save_tick = 0;
 static ShortcutKey g_sk_tidy = { true, true, false, 'Y' };   // Ctrl+Alt+Y
 
-static const int   NFUNCS = 18;
+static const int   NFUNCS = 27;
 static FuncItem    g_funcs[NFUNCS] = {};
 
 // Slot layout (flat menu — submenus come with the Settings milestone):
 //  0  Reindent / tidy (Ctrl+Alt+Y)   YAML, line-based, comments preserved
 //  1  ---
 //  2  Validate                       YAML/JSON, libyaml
-//  3  YAML -> JSON                    libyaml, data-only
-//  4  JSON -> YAML                    libyaml, data-only
+//  3  YAML -> JSON                    libyaml
+//  4  JSON -> YAML                    libyaml
 //  5  ---
 //  6  JSON: Pretty-print             libyaml
 //  7  JSON: Minify                   libyaml
 //  8  JSON: Sort keys                libyaml
-//  9  JSON: Escape as string         pure string op
-//  10 JSON: Unescape string          pure string op
+//  9  JSON: Escape as string         pure
+//  10 JSON: Unescape string          pure
 //  11 ---
-//  12 Format on Save: On
-//  13 Format on Save: Off
-//  14 ---
-//  15 Settings...                    (stub until the tabbed dialog)
-//  16 About
-//  17 Help
+//  12 CSV: Align columns             pure
+//  13 CSV: Compact                   pure
+//  14 CSV: To comma delimiter        pure
+//  15 CSV: To semicolon delimiter    pure
+//  16 CSV: Sort by column at cursor  pure
+//  17 CSV: Transpose                 pure
+//  18 CSV -> JSON                     pure
+//  19 JSON -> CSV                     libyaml
+//  20 ---
+//  21 Format on Save: On
+//  22 Format on Save: Off
+//  23 ---
+//  24 Settings...                    (stub until the tabbed dialog)
+//  25 About
+//  26 Help
 
 // ─── editor helpers ─────────────────────────────────────────────────────────
 
@@ -194,6 +207,63 @@ static void cmd_json_minify()   { run_convert(json_minify); }
 static void cmd_json_sort()     { run_convert(json_sort_keys); }
 static void cmd_json_escape()   { run_string_op(json_escape); }
 static void cmd_json_unescape() { run_string_op(json_unescape); }
+
+static void cmd_csv_align()     { run_string_op(csv_align); }
+static void cmd_csv_compact()   { run_string_op(csv_compact); }
+static void cmd_csv_comma()     { run_string_op(csv_to_comma); }
+static void cmd_csv_semicolon() { run_string_op(csv_to_semicolon); }
+static void cmd_csv_transpose() { run_string_op(csv_transpose); }
+static void cmd_csv_to_json()   { run_string_op(csv_to_json); }
+static void cmd_json_to_csv()   { run_convert(json_to_csv); }
+
+// Which CSV field the caret sits in on its current line (delimiter sniffed
+// from the first line; quote-aware). Used by "Sort by column at cursor".
+static int cursor_csv_col() {
+    HWND sci = current_editor();
+    int pos    = (int)SendMessage(sci, SCI_GETCURRENTPOS, 0, 0);
+    int line   = (int)SendMessage(sci, SCI_LINEFROMPOSITION, pos, 0);
+    int lstart = (int)SendMessage(sci, SCI_POSITIONFROMLINE, line, 0);
+    std::string buf = get_text();
+    if (lstart < 0 || pos < lstart || pos > (int)buf.size()) return 0;
+
+    char d = ',';
+    {
+        size_t e = buf.find('\n');
+        std::string f = buf.substr(0, e == std::string::npos ? buf.size() : e);
+        int best = -1;
+        for (char cd : { ',', ';', '\t', '|' }) {
+            int n = 0; bool q = false;
+            for (char c : f) {
+                if (q) { if (c == '"') q = false; }
+                else if (c == '"') q = true;
+                else if (c == cd) ++n;
+            }
+            if (n > best) { best = n; d = cd; }
+        }
+    }
+    int col = 0; bool q = false;
+    for (int i = lstart; i < pos; ++i) {
+        char c = buf[i];
+        if (q) { if (c == '"') q = false; }
+        else if (c == '"') q = true;
+        else if (c == d) ++col;
+    }
+    return col;
+}
+
+static void cmd_csv_sort() {
+    int col = cursor_csv_col();
+    HWND sci = current_editor();
+    int ss = (int)SendMessage(sci, SCI_GETSELECTIONSTART, 0, 0);
+    int se = (int)SendMessage(sci, SCI_GETSELECTIONEND,   0, 0);
+    std::string buf = get_text();
+    bool sel = (ss != se && se <= (int)buf.size());
+    std::string src = sel ? buf.substr(ss, se - ss) : buf;
+    if (src.empty()) return;
+    std::string r = csv_sort_by_column(src, col);
+    if (!r.empty() && r[0] == '\001') { msg(widen(r.substr(1)), MB_ICONWARNING); return; }
+    if (sel) replace_sel(r); else set_text(r);
+}
 static void cmd_fos_on()  { g_settings.format_on_save = true; }
 static void cmd_fos_off() { g_settings.format_on_save = false; }
 static void cmd_settings() {
@@ -205,7 +275,7 @@ static void cmd_settings() {
 static void cmd_about() {
     MessageBoxW(g_npp._nppHandle,
         L"Datamodder File Tools  " FILETOOLS_VERSION_W L"\n\n"
-        L"Tidy, validate and convert YAML and JSON. (CSV next.)\n"
+        L"Tidy, validate and convert YAML, JSON and CSV.\n"
         L"64-bit Notepad++ only.  MIT.\n"
         L"https://github.com/dm-utils/filetools",
         L"About", MB_OK | MB_ICONINFORMATION);
@@ -266,12 +336,21 @@ BOOL APIENTRY DllMain(HINSTANCE h, DWORD reason, LPVOID) {
         init_func(9,  L"JSON: Escape as string",       cmd_json_escape);
         init_func(10, L"JSON: Unescape string",        cmd_json_unescape);
         init_func(11, L"-",                            nullptr);
-        init_func(12, L"Format on Save: On",           cmd_fos_on);
-        init_func(13, L"Format on Save: Off",          cmd_fos_off);
-        init_func(14, L"-",                            nullptr);
-        init_func(15, L"Settings...",                  cmd_settings);
-        init_func(16, L"About",                        cmd_about);
-        init_func(17, L"Help",                         cmd_help);
+        init_func(12, L"CSV: Align columns",           cmd_csv_align);
+        init_func(13, L"CSV: Compact",                 cmd_csv_compact);
+        init_func(14, L"CSV: To comma delimiter",      cmd_csv_comma);
+        init_func(15, L"CSV: To semicolon delimiter",  cmd_csv_semicolon);
+        init_func(16, L"CSV: Sort by column at cursor",cmd_csv_sort);
+        init_func(17, L"CSV: Transpose",               cmd_csv_transpose);
+        init_func(18, L"CSV \x2192 JSON",             cmd_csv_to_json);
+        init_func(19, L"JSON \x2192 CSV",             cmd_json_to_csv);
+        init_func(20, L"-",                            nullptr);
+        init_func(21, L"Format on Save: On",           cmd_fos_on);
+        init_func(22, L"Format on Save: Off",          cmd_fos_off);
+        init_func(23, L"-",                            nullptr);
+        init_func(24, L"Settings...",                  cmd_settings);
+        init_func(25, L"About",                        cmd_about);
+        init_func(26, L"Help",                         cmd_help);
     }
     return TRUE;
 }

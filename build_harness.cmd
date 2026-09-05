@@ -22,7 +22,7 @@ if exist "vendor\libyaml\src\api.c" (
 )
 
 cl /nologo /O2 /EHsc /std:c++17 /utf-8 %YAMLFLAGS% ^
-   src\test_harness.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp %YAMLSRC% ^
+   src\test_harness.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp %YAMLSRC% ^
    /Fe:build\harness\test_harness.exe ^
    /Fo:build\harness\
 if errorlevel 1 ( echo Build failed & exit /b 1 )

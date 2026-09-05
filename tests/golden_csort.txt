@@ -1,0 +1,4 @@
+name;age;city
+Bob;5;Den Haag
+Carol;12;Delft
+Alice;30;Amsterdam

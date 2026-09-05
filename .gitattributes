@@ -1,0 +1,7 @@
+# Golden files and their fixtures are compared byte-for-byte by the harness
+# (binary stdout). Keep line endings exactly as committed on every platform.
+tests/golden_*.txt   -text
+tests/*.csv          -text
+tests/*.json         -text
+tests/*.yaml         -text
+test_docs.yaml       -text

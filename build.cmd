@@ -30,7 +30,7 @@ if exist "vendor\libyaml\src\api.c" (
 
 :: -- Compile and link (options before sources to avoid D9026) --
 cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 %YAMLFLAGS% ^
-   src\dllmain.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp %YAMLSRC% ^
+   src\dllmain.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp %YAMLSRC% ^
    build\settings.res ^
    /Fe:build\FileTools.dll ^
    /Fo:build\ ^
