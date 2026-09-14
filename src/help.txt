@@ -116,4 +116,8 @@ Settings dialog (indent / keys / lint / profiles). See DESIGN.md.
 
 LICENSE
 -------
-MIT. https://github.com/dm-utils/filetools
+MIT.
+
+Plugin page (usage tips): https://datamodder.com/utils/file-tools
+Updates and bug reports: see the project repository at
+https://github.com/dm-utils/filetools

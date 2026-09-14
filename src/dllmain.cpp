@@ -513,11 +513,12 @@ static INT_PTR CALLBACK about_proc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lP
             L"- Convert between YAML, JSON, CSV and Parquet (via duckdb.exe)\n"
             L"- Format on Save\n\n"
             L"This plugin is distributed under the MIT license.\n\n"
-            L"For updates or to report a bug, visit the project repository:");
+            L"For usage tips, see the plugin page. For updates or to report a bug, visit the project repository:");
         return TRUE;
     case WM_NOTIFY: {
         NMHDR* hdr = reinterpret_cast<NMHDR*>(lParam);
-        if (hdr->idFrom == IDC_ABOUT_LINK && (hdr->code == NM_CLICK || hdr->code == NM_RETURN)) {
+        if ((hdr->idFrom == IDC_ABOUT_LINK || hdr->idFrom == IDC_ABOUT_LINK_WEBSITE) &&
+            (hdr->code == NM_CLICK || hdr->code == NM_RETURN)) {
             NMLINK* link = reinterpret_cast<NMLINK*>(lParam);
             ShellExecuteW(hDlg, L"open", link->item.szUrl, nullptr, nullptr, SW_SHOWNORMAL);
             return TRUE;
