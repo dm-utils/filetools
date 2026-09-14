@@ -1,10 +1,22 @@
 DATAMODDER FILE TOOLS
 =====================
-A Notepad++ plugin for tidying, validating and converting text data formats.
-YAML and JSON now; CSV is next. 64-bit Notepad++ only.
+A Notepad++ plugin for tidying, validating and converting text data formats:
+YAML, JSON and CSV, plus Parquet via DuckDB. 64-bit Notepad++ only.
+
+The menu is grouped: Reindent / tidy on top, then the YAML, JSON, CSV and
+Parquet submenus, then Format on Save and Settings / About / Help. Each format
+submenu carries the full set of conversions *from* that format, so every
+format can reach every other:
+
+           to ->  YAML     JSON     CSV      Parquet
+  from YAML        -        yes      yes      yes (file)
+  from JSON        yes      -        yes      yes (file)
+  from CSV         yes      yes      -        yes (file)
+  from Parquet     yes      yes      yes      -
+                 (preview) (preview)(preview)
 
 Every command runs on the selection if there is one, otherwise on the whole
-document.
+document. (The Parquet commands always use the whole file.)
 
 
 REINDENT / TIDY   (Ctrl+Alt+Y)          YAML, comments preserved
@@ -23,14 +35,15 @@ lines inside an unclosed flow collection ( { } / [ ] ), and the text of
 comments and quoted scalars.
 
 
-VALIDATE  /  YAML <-> JSON               data-only (libyaml)
--------------------------
+YAML SUBMENU                            data-only (libyaml)
+------------
 Parsed with libyaml, so comments and layout are not preserved.
 
-  Validate      first syntax error as "regel R, kolom K: ...", or "Geldige YAML."
-  YAML -> JSON  pretty JSON (2-space). Multiple documents -> a JSON array.
-                Anchors/aliases are not supported yet.
-  JSON -> YAML  re-emit as block-style YAML.
+  Validate         first syntax error as "regel R, kolom K: ...", or "Geldige YAML."
+  YAML -> JSON     pretty JSON (2-space). Multiple documents -> a JSON array.
+                   Anchors/aliases are not supported yet.
+  YAML -> CSV      via JSON (expects a sequence of mappings)
+  YAML -> Parquet  via JSON; see PARQUET below
 
 
 JSON TOOLS                              data-only (libyaml)
@@ -63,7 +76,30 @@ escapes and newlines inside quotes are handled. CR/LF style is preserved.
                              the whole column is numbers
   Transpose        swap rows and columns
   CSV -> JSON      first row = keys, the rest -> an array of objects
-  JSON -> CSV      an array of objects -> CSV (header = union of keys)
+  CSV -> YAML      via JSON
+  CSV -> Parquet   see PARQUET below
+
+(The JSON submenu has the mirror image: JSON -> YAML / CSV / Parquet, plus
+pretty-print / minify / sort keys / escape / unescape.)
+
+
+PARQUET                                needs duckdb.exe
+-------
+duckdb.exe must be on your PATH or sitting next to the plugin DLL
+( plugins\FileTools\duckdb.exe ). Download: https://duckdb.org/
+
+  Parquet -> CSV / JSON / YAML  (preview)
+        open a saved .parquet file, then run this; the first 100 000 rows are
+        dumped into a NEW tab. Read-only - the .parquet file is never touched.
+        (YAML goes through JSON.)
+
+  CSV / JSON / YAML -> Parquet  (file)
+        from a saved .csv / .json / .yaml (or .yml) document, write
+        <name>.parquet next to it. Unsaved edits are included. YAML is
+        converted to JSON first.
+
+Under the hood: read_parquet / read_csv_auto / read_json_auto and
+COPY ... TO ... (FORMAT PARQUET).
 
 
 FORMAT ON SAVE

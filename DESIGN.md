@@ -50,6 +50,49 @@ Format-on-Save checkmark come with the Settings milestone — copy
 `build_all_submenus` / `find_my_menu` / `set_*_checkmark` from FormatSQL's
 `dllmain.cpp`.
 
+## Parquet — everything shells out to DuckDB
+
+Parquet is columnar binary; there is no line-based editing story, and a real
+reader (Apache Arrow) is far too big to statically link into an NPP plugin.
+So all Parquet work goes through `duckdb.exe` (a single ~30 MB self-contained
+binary, MIT), found on `PATH` or next to the plugin DLL; if missing, a message
+box points at duckdb.org.
+
+- **`Parquet → CSV / JSON` (preview)** — read-only. Runs
+  `duckdb -csv|-json -c "SELECT * FROM read_parquet('<file>') LIMIT 100000"`,
+  captures stdout via `CreateProcessW` + an anonymous pipe (`CREATE_NO_WINDOW`,
+  stdout+stderr merged), drops the result into a **new tab**
+  (`NPPM_MENUCOMMAND` + `IDM_FILE_NEW`, then `SCI_SETTEXT`). The `.parquet`
+  file is never written.
+- **`CSV → Parquet` / `JSON → Parquet` (file)** — the current buffer (unsaved
+  edits included) is spilled to a temp `.csv` / `.json`, then
+  `duckdb -c "COPY (SELECT * FROM read_csv_auto|read_json_auto('<tmp>')) TO
+  '<doc dir>\<stem>.parquet' (FORMAT PARQUET)"`. A message box reports the
+  output path.
+
+Not golden-tested (needs the external binary + a fixture).
+
+## Menu grouping
+
+Notepad++ only takes a flat `getFuncsArray`. At `NPPN_READY` (and, as a
+fallback, on the first `messageProc`) `try_build_menu` → `build_all_submenus`
+finds the plugin's own popup with `find_my_menu` (walk the menu bar, match the
+`getName()` string), `DeleteMenu`s the flat slots and re-inserts them as the
+**YAML / JSON / CSV / Parquet** and **Format on Save** popups via
+`CreatePopupMenu` + `AppendMenuW` + `InsertMenuW`, keyed by the `_cmdID`s
+Notepad++ filled into `g_funcs`. Same pattern as FormatSQL's `build_all_submenus`.
+`Reindent / tidy` stays at the top level so its `Ctrl+Alt+Y` hint shows.
+
+Each format submenu carries the **full conversion matrix from that format**
+(YAML → JSON/CSV/Parquet, JSON → YAML/CSV/Parquet, CSV → JSON/YAML/Parquet,
+Parquet → CSV/JSON/YAML), and the Parquet submenu additionally repeats the
+`… → Parquet` direction (same `_cmdID`s, listed in two menus). JSON is the hub:
+the conversions DuckDB and libyaml don't do directly are composed —
+`yaml_to_csv_conv` = `yaml_to_json` → `jsontools::to_csv`, `csv_to_yaml_conv` =
+`csv_to_json` → `json_to_yaml`, `Parquet → YAML` = duckdb `-json` →
+`json_to_yaml`, `YAML → Parquet` = `yaml_to_json` → temp `.json` → duckdb COPY.
+Errors (leading SOH) short-circuit each chain.
+
 ## Settings (tabs, planned)
 
 - **Indent** — spaces per level (2/4), tab width, sequences indented under key

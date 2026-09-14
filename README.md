@@ -1,6 +1,7 @@
 # Datamodder File Tools (FileTools)
 
-A Notepad++ plugin for tidying, validating and converting text data formats (YAML, JSON; CSV next).
+A Notepad++ plugin for tidying, validating and converting text data formats
+(YAML, JSON, CSV) plus a read-only Parquet preview.
 
 **64-bit Notepad++ only.**
 
@@ -14,8 +15,17 @@ Working:
   Block-scalar bodies, unclosed flow collections and quoted text are left
   untouched.
 - **Format on Save** (On / Off, not yet persisted).
-- **JSON**: pretty-print, minify, sort keys, escape/unescape, YAML ↔ JSON.
-- **CSV**: align columns, compact, delimiter convert, sort by column, transpose, CSV ↔ JSON.
+- **JSON**: pretty-print, minify, sort keys, escape/unescape.
+- **CSV**: align columns, compact, delimiter convert, sort by column, transpose.
+- **Parquet** (via `duckdb.exe` on PATH or next to the DLL): `Parquet → …`
+  previews a saved `.parquet` file in a new tab (read-only); `… → Parquet`
+  writes a `.parquet` file next to the current document.
+- **Full conversion matrix** — every format submenu carries every conversion
+  *from* that format, so YAML/JSON/CSV/Parquet all reach each other (YAML
+  routes through JSON; to/from Parquet needs `duckdb.exe`).
+
+The menu is grouped into **YAML / JSON / CSV / Parquet** submenus (built at
+`NPPN_READY` from the flat `g_funcs` list — see `build_all_submenus`).
 
 Stubbed / planned — see [DESIGN.md](DESIGN.md):
 

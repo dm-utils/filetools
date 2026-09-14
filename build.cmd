@@ -34,7 +34,7 @@ cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 %YAMLFLAGS% ^
    build\settings.res ^
    /Fe:build\FileTools.dll ^
    /Fo:build\ ^
-   /link user32.lib shell32.lib
+   /link user32.lib shell32.lib comctl32.lib
 if errorlevel 1 ( echo Build failed & exit /b 1 )
 
 :: -- Close Notepad++ --
