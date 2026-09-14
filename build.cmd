@@ -30,11 +30,11 @@ if exist "vendor\libyaml\src\api.c" (
 
 :: -- Compile and link (options before sources to avoid D9026) --
 cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 %YAMLFLAGS% ^
-   src\dllmain.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp %YAMLSRC% ^
+   src\dllmain.cpp src\settings_dialog.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp %YAMLSRC% ^
    build\settings.res ^
    /Fe:build\FileTools.dll ^
    /Fo:build\ ^
-   /link user32.lib shell32.lib comctl32.lib
+   /link user32.lib shell32.lib comctl32.lib comdlg32.lib
 if errorlevel 1 ( echo Build failed & exit /b 1 )
 
 :: -- Close Notepad++ --

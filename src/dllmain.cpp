@@ -1,7 +1,5 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <commctrl.h>
-#include <shellapi.h>
 #include <string>
 #include <cwctype>
 #include "yaml_tidy.h"
@@ -10,8 +8,6 @@
 #include "csv_tools.h"
 #include "settings.h"
 #include "resource.h"
-
-YamlSettings g_settings;
 
 // ─── Notepad++ / Scintilla ABI (only what this plugin uses) ──────────────────
 
@@ -66,12 +62,12 @@ enum {
 // ─── globals ────────────────────────────────────────────────────────────────
 
 static NppData     g_npp    = {};
-static HINSTANCE   g_module = nullptr;
+HINSTANCE          g_module = nullptr;
 static DWORD       g_save_tick = 0;
 static bool        g_menu_built = false;
 static ShortcutKey g_sk_tidy = { true, true, false, 'Y' };   // Ctrl+Alt+Y
 
-static const int   NFUNCS = 36;
+static const int   NFUNCS = 38;
 static FuncItem    g_funcs[NFUNCS] = {};
 
 // g_funcs is a FLAT list (Notepad++ requires it). At NPPN_READY the plugin
@@ -103,20 +99,22 @@ static FuncItem    g_funcs[NFUNCS] = {};
 //  19 CSV: To semicolon delimiter    pure                     -> CSV
 //  20 CSV: Sort by column at cursor  pure                     -> CSV
 //  21 CSV: Transpose                 pure                     -> CSV
-//  22 CSV -> JSON                     pure                     -> CSV
-//  23 CSV -> YAML                     libyaml (via JSON)       -> CSV
-//  24 CSV -> Parquet (file)           duckdb.exe               -> CSV
-//  25 ---
-//  26 Parquet -> CSV  (preview)      read-only, duckdb.exe    -> Parquet
-//  27 Parquet -> JSON (preview)      read-only, duckdb.exe    -> Parquet
-//  28 Parquet -> YAML (preview)      duckdb.exe (via JSON)    -> Parquet
-//  29 ---
-//  30 Format on Save: On
-//  31 Format on Save: Off
-//  32 ---
-//  33 Settings...                    (stub until the tabbed dialog)
-//  34 About
-//  35 Help
+//  22 CSV: Add quotes                pure                     -> CSV
+//  23 CSV: Remove quotes             pure                     -> CSV
+//  24 CSV -> JSON                     pure                     -> CSV
+//  25 CSV -> YAML                     libyaml (via JSON)       -> CSV
+//  26 CSV -> Parquet (file)           duckdb.exe               -> CSV
+//  27 ---
+//  28 Parquet -> CSV  (preview)      read-only, duckdb.exe    -> Parquet
+//  29 Parquet -> JSON (preview)      read-only, duckdb.exe    -> Parquet
+//  30 Parquet -> YAML (preview)      duckdb.exe (via JSON)    -> Parquet
+//  31 ---
+//  32 Format on Save: On
+//  33 Format on Save: Off
+//  34 ---
+//  35 Settings...                    (tabbed dialog: YAML/JSON/CSV/Parquet/Behavior + profiles)
+//  36 About
+//  37 Help
 
 // ─── editor helpers ─────────────────────────────────────────────────────────
 
@@ -225,19 +223,37 @@ static void run_convert(std::string (*fn)(const std::string&)) {
 
 static void cmd_yaml_to_json() { run_convert(yaml_to_json); }
 static void cmd_json_to_yaml() { run_convert(json_to_yaml); }
-static void cmd_json_pretty()   { run_convert(json_pretty); }
+
+// Indent/sort-keys-by-default come from settings; json_pretty()/json_sort_keys()
+// stay as pure, settings-free free functions (json_tools.cpp has no windows.h
+// dependency), so read g_settings here instead of hardcoding 2/false.
+static int json_indent_setting() { return g_settings.json_indent == JsonIndent::Four ? 4 : 2; }
+static std::string json_pretty_ex(const std::string& s) {
+    return jsontools::reserialize(s, json_indent_setting(), g_settings.json_sort_keys);
+}
+static std::string json_sort_ex(const std::string& s) {
+    return jsontools::reserialize(s, json_indent_setting(), /*sort_keys=*/true);
+}
+static void cmd_json_pretty()   { run_convert(json_pretty_ex); }
 static void cmd_json_minify()   { run_convert(json_minify); }
-static void cmd_json_sort()     { run_convert(json_sort_keys); }
+static void cmd_json_sort()     { run_convert(json_sort_ex); }
 static void cmd_json_escape()   { run_string_op(json_escape); }
 static void cmd_json_unescape() { run_string_op(json_unescape); }
 
-static void cmd_csv_align()     { run_string_op(csv_align); }
-static void cmd_csv_compact()   { run_string_op(csv_compact); }
-static void cmd_csv_comma()     { run_string_op(csv_to_comma); }
-static void cmd_csv_semicolon() { run_string_op(csv_to_semicolon); }
-static void cmd_csv_transpose() { run_string_op(csv_transpose); }
-static void cmd_csv_to_json()   { run_string_op(csv_to_json); }
-static void cmd_json_to_csv()   { run_convert(json_to_csv); }
+// "Align columns" respects the CSV quote-mode setting; the two explicit
+// Add/Remove quotes commands always force their own mode regardless of it.
+static std::string csv_align_ex(const std::string& s) {
+    return csv_align(s, g_settings.csv_quote_mode == CsvQuoteMode::Always);
+}
+static void cmd_csv_align()         { run_string_op(csv_align_ex); }
+static void cmd_csv_compact()       { run_string_op(csv_compact); }
+static void cmd_csv_comma()         { run_string_op(csv_to_comma); }
+static void cmd_csv_semicolon()     { run_string_op(csv_to_semicolon); }
+static void cmd_csv_add_quotes()    { run_string_op(csv_add_quotes); }
+static void cmd_csv_remove_quotes() { run_string_op(csv_remove_quotes); }
+static void cmd_csv_transpose()     { run_string_op(csv_transpose); }
+static void cmd_csv_to_json()       { run_string_op(csv_to_json); }
+static void cmd_json_to_csv()       { run_convert(json_to_csv); }
 
 // Composite conversions — JSON is the hub. Errors (leading SOH) propagate.
 static bool is_conv_err(const std::string& s) { return !s.empty() && s[0] == '\001'; }
@@ -351,6 +367,10 @@ static int run_capture(const std::wstring& cmdline, std::string& out) {
 // Locate duckdb.exe: PATH, then next to this DLL. Empty + a message box if
 // it can't be found anywhere.
 static std::wstring duckdb_or_warn() {
+    if (!g_settings.duckdb_path.empty()) {
+        std::wstring w = widen(g_settings.duckdb_path);
+        if (GetFileAttributesW(w.c_str()) != INVALID_FILE_ATTRIBUTES) return w;
+    }
     wchar_t found[MAX_PATH] = {};
     if (SearchPathW(nullptr, L"duckdb", L".exe", MAX_PATH, found, nullptr)) return found;
     wchar_t here[MAX_PATH] = {};
@@ -491,58 +511,10 @@ static void cmd_csv_to_parquet()  { export_parquet(Fmt::Csv); }
 static void cmd_json_to_parquet() { export_parquet(Fmt::Json); }
 static void cmd_yaml_to_parquet() { export_parquet(Fmt::Yaml); }
 
-static void cmd_fos_on()  { g_settings.format_on_save = true; }
-static void cmd_fos_off() { g_settings.format_on_save = false; }
-static void cmd_settings() {
-    MessageBoxW(g_npp._nppHandle,
-        L"De instellingen-UI (indent, keys, lint, profielen) volgt.\n"
-        L"Voorlopig: 2 spaties per niveau, tabs -> spaties, max 1 lege regel.",
-        L"Datamodder File Tools", MB_OK | MB_ICONINFORMATION);
-}
-// ─── about dialog ─────────────────────────────────────────────────────────────
-
-static INT_PTR CALLBACK about_proc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) {
-    switch (msg) {
-    case WM_INITDIALOG:
-        SetDlgItemTextW(hDlg, IDC_ABOUT_BODY,
-            L"Tidy, validate and convert YAML, JSON and CSV directly in Notepad++.\n\n"
-            L"Features:\n"
-            L"- Reindent / tidy YAML (Ctrl+Alt+Y)\n"
-            L"- JSON: pretty-print, minify, sort keys, escape/unescape\n"
-            L"- CSV: align columns, compact, delimiter convert, sort, transpose\n"
-            L"- Convert between YAML, JSON, CSV and Parquet (via duckdb.exe)\n"
-            L"- Format on Save\n\n"
-            L"This plugin is distributed under the MIT license.\n\n"
-            L"For usage tips, see the plugin page. For updates or to report a bug, visit the project repository:");
-        return TRUE;
-    case WM_NOTIFY: {
-        NMHDR* hdr = reinterpret_cast<NMHDR*>(lParam);
-        if ((hdr->idFrom == IDC_ABOUT_LINK || hdr->idFrom == IDC_ABOUT_LINK_WEBSITE) &&
-            (hdr->code == NM_CLICK || hdr->code == NM_RETURN)) {
-            NMLINK* link = reinterpret_cast<NMLINK*>(lParam);
-            ShellExecuteW(hDlg, L"open", link->item.szUrl, nullptr, nullptr, SW_SHOWNORMAL);
-            return TRUE;
-        }
-        break;
-    }
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
-            EndDialog(hDlg, LOWORD(wParam));
-            return TRUE;
-        }
-        break;
-    case WM_CLOSE:
-        EndDialog(hDlg, IDCANCEL);
-        return TRUE;
-    }
-    return FALSE;
-}
-
-static void cmd_about() {
-    INITCOMMONCONTROLSEX icc = { sizeof(icc), ICC_LINK_CLASS };
-    InitCommonControlsEx(&icc);
-    DialogBox(g_module, MAKEINTRESOURCE(IDD_ABOUT), g_npp._nppHandle, about_proc);
-}
+static void cmd_fos_on()  { g_settings.format_on_save = true;  save_settings(); }
+static void cmd_fos_off() { g_settings.format_on_save = false; save_settings(); }
+static void cmd_settings() { show_settings_dialog(g_npp._nppHandle); }
+static void cmd_about()    { show_about_dialog(g_npp._nppHandle); }
 static void cmd_help() {
     wchar_t path[MAX_PATH] = {};
     GetModuleFileNameW(g_module, path, MAX_PATH);
@@ -582,14 +554,15 @@ static void build_all_submenus(HMENU hMine) {
     UINT id_calign = g_funcs[16]._cmdID, id_ccompact = g_funcs[17]._cmdID;
     UINT id_ccomma = g_funcs[18]._cmdID, id_csemi = g_funcs[19]._cmdID;
     UINT id_csort = g_funcs[20]._cmdID, id_ctrans = g_funcs[21]._cmdID;
-    UINT id_c2j = g_funcs[22]._cmdID, id_c2y = g_funcs[23]._cmdID, id_c2pq = g_funcs[24]._cmdID;
-    UINT id_pq2c = g_funcs[26]._cmdID, id_pq2j = g_funcs[27]._cmdID, id_pq2y = g_funcs[28]._cmdID;
-    UINT id_fos_on = g_funcs[30]._cmdID, id_fos_off = g_funcs[31]._cmdID;
+    UINT id_cquote_add = g_funcs[22]._cmdID, id_cquote_rm = g_funcs[23]._cmdID;
+    UINT id_c2j = g_funcs[24]._cmdID, id_c2y = g_funcs[25]._cmdID, id_c2pq = g_funcs[26]._cmdID;
+    UINT id_pq2c = g_funcs[28]._cmdID, id_pq2j = g_funcs[29]._cmdID, id_pq2y = g_funcs[30]._cmdID;
+    UINT id_fos_on = g_funcs[32]._cmdID, id_fos_off = g_funcs[33]._cmdID;
 
-    // Remove flat slots 2..31 (Validate .. Format on Save: Off + separators),
-    // high to low. Left behind: 0 tidy, 1 sep, 2 sep(32), 3 Settings, 4 About,
+    // Remove flat slots 2..33 (Validate .. Format on Save: Off + separators),
+    // high to low. Left behind: 0 tidy, 1 sep, 2 sep(34), 3 Settings, 4 About,
     // 5 Help.
-    for (int i = 31; i >= 2; --i) DeleteMenu(hMine, i, MF_BYPOSITION);
+    for (int i = 33; i >= 2; --i) DeleteMenu(hMine, i, MF_BYPOSITION);
 
     HMENU hY = CreatePopupMenu();
     AppendMenuW(hY, MF_STRING,    id_validate, L"Validate");
@@ -620,6 +593,9 @@ static void build_all_submenus(HMENU hMine) {
     AppendMenuW(hC, MF_STRING,    id_csemi,    L"To semicolon delimiter");
     AppendMenuW(hC, MF_STRING,    id_csort,    L"Sort by column at cursor");
     AppendMenuW(hC, MF_STRING,    id_ctrans,   L"Transpose");
+    AppendMenuW(hC, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(hC, MF_STRING,    id_cquote_add, L"Add quotes");
+    AppendMenuW(hC, MF_STRING,    id_cquote_rm,  L"Remove quotes");
     AppendMenuW(hC, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(hC, MF_STRING,    id_c2j,      L"CSV \x2192 JSON");
     AppendMenuW(hC, MF_STRING,    id_c2y,      L"CSV \x2192 YAML");
@@ -660,7 +636,7 @@ extern "C" {
 
 __declspec(dllexport) const wchar_t* getName() { return L"Datamodder File Tools"; }
 
-__declspec(dllexport) void setInfo(NppData d) { g_npp = d; }
+__declspec(dllexport) void setInfo(NppData d) { g_npp = d; load_settings(); }
 
 __declspec(dllexport) FuncItem* getFuncsArray(int* n) { *n = NFUNCS; return g_funcs; }
 
@@ -712,20 +688,22 @@ BOOL APIENTRY DllMain(HINSTANCE h, DWORD reason, LPVOID) {
         init_func(19, L"CSV: To semicolon delimiter",  cmd_csv_semicolon);
         init_func(20, L"CSV: Sort by column at cursor",cmd_csv_sort);
         init_func(21, L"CSV: Transpose",               cmd_csv_transpose);
-        init_func(22, L"CSV \x2192 JSON",              cmd_csv_to_json);
-        init_func(23, L"CSV \x2192 YAML",              cmd_csv_to_yaml);
-        init_func(24, L"CSV \x2192 Parquet  (file)",   cmd_csv_to_parquet);
-        init_func(25, L"-",                            nullptr);
-        init_func(26, L"Parquet \x2192 CSV  (preview)",  cmd_parquet_csv);
-        init_func(27, L"Parquet \x2192 JSON  (preview)", cmd_parquet_json);
-        init_func(28, L"Parquet \x2192 YAML  (preview)", cmd_parquet_yaml);
-        init_func(29, L"-",                            nullptr);
-        init_func(30, L"Format on Save: On",           cmd_fos_on);
-        init_func(31, L"Format on Save: Off",          cmd_fos_off);
-        init_func(32, L"-",                            nullptr);
-        init_func(33, L"Settings...",                  cmd_settings);
-        init_func(34, L"About",                        cmd_about);
-        init_func(35, L"Help",                         cmd_help);
+        init_func(22, L"CSV: Add quotes",              cmd_csv_add_quotes);
+        init_func(23, L"CSV: Remove quotes",           cmd_csv_remove_quotes);
+        init_func(24, L"CSV \x2192 JSON",              cmd_csv_to_json);
+        init_func(25, L"CSV \x2192 YAML",              cmd_csv_to_yaml);
+        init_func(26, L"CSV \x2192 Parquet  (file)",   cmd_csv_to_parquet);
+        init_func(27, L"-",                            nullptr);
+        init_func(28, L"Parquet \x2192 CSV  (preview)",  cmd_parquet_csv);
+        init_func(29, L"Parquet \x2192 JSON  (preview)", cmd_parquet_json);
+        init_func(30, L"Parquet \x2192 YAML  (preview)", cmd_parquet_yaml);
+        init_func(31, L"-",                            nullptr);
+        init_func(32, L"Format on Save: On",           cmd_fos_on);
+        init_func(33, L"Format on Save: Off",          cmd_fos_off);
+        init_func(34, L"-",                            nullptr);
+        init_func(35, L"Settings...",                  cmd_settings);
+        init_func(36, L"About",                        cmd_about);
+        init_func(37, L"Help",                         cmd_help);
     }
     return TRUE;
 }

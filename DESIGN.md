@@ -44,11 +44,11 @@ YAML Tools
 ├─ Settings…  ·  About  ·  Help
 ```
 
-The scaffold ships a **flat** menu (Reindent, Validate stub, Format on Save
-On/Off, Settings stub, About, Help). The submenu builder + the
-Format-on-Save checkmark come with the Settings milestone — copy
-`build_all_submenus` / `find_my_menu` / `set_*_checkmark` from FormatSQL's
-`dllmain.cpp`.
+The submenu builder (`build_all_submenus` / `find_my_menu`, copied from
+FormatSQL's `dllmain.cpp`) and the Settings dialog have both shipped — see
+"Settings dialog (v1, shipped)" below. A `set_*_checkmark` for Format on
+Save (like FormatSQL's) hasn't landed yet; the menu shows "On"/"Off" as two
+plain items rather than a checked radio state.
 
 ## Parquet — everything shells out to DuckDB
 
@@ -93,20 +93,49 @@ the conversions DuckDB and libyaml don't do directly are composed —
 `json_to_yaml`, `YAML → Parquet` = `yaml_to_json` → temp `.json` → duckdb COPY.
 Errors (leading SOH) short-circuit each chain.
 
-## Settings (tabs, planned)
+## Settings dialog (v1, shipped)
 
-- **Indent** — spaces per level (2/4), tab width, sequences indented under key
-  or at key level, max blank lines, trailing newline, strip trailing ws.
+Tabbed `IDD_SETTINGS` + `IDC_NAV` listbox, `settings_dialog.cpp` — same
+pattern as FormatSQL's dialog (child `CreateDialog` pages positioned beside
+the nav list, shown/hidden on selection). INI persistence at
+`%APPDATA%\Notepad++\plugins\config\FileTools.ini`; named profiles as
+`.json` files under `...\config\FileTools_profiles\`, with save/load/delete/
+export/import — same `settings_to_json`/`settings_from_json` +
+`get_profiles_dir` mechanism as FormatSQL.
+
+- **YAML** — indent step, tab width, max. consecutive blank lines, strip
+  trailing whitespace, ensure a final newline (all four `TidyOptions` fields).
+- **JSON** — pretty-print indent (2 or 4 spaces), sort keys by default.
+  `Sort keys` (the explicit menu command) always sorts regardless of this
+  default; only `Pretty-print` reads it.
+- **CSV** — quote mode for `Align columns`: only when needed, or always.
+  Two new one-off menu commands, `Add quotes` / `Remove quotes`, ignore this
+  setting and always force their own mode.
+- **Parquet** — override the `duckdb.exe` path (Browse... button); empty
+  falls back to PATH, then next to the DLL, as before.
+- **Behavior** — Format on Save + the profiles UI.
+
+Not done: a `set_*_checkmark`-style live indicator for Format on Save,
+FQDN-style cross-field validation (not needed here), and the broader ideas
+below remain unimplemented.
+
+## Settings (tabs, further ideas / not yet started)
+
+- **Indent** — the shipped YAML tab covers spaces-per-level, tab width, max
+  blank lines, trailing newline, strip trailing ws. Not yet: sequences
+  indented under key vs. at key level.
 - **Style** — quote policy (minimal/single/double/preserve), block↔flow for
   short maps/seqs, `---` / `...` markers add/keep/remove.
 - **Keys** — default sort (off/asc/desc), case-insensitive, **pinned keys**
   that stay on top (`apiVersion, kind, metadata, name` → Kubernetes), sort
   only under certain paths.
-- **JSON** — indent width, sort keys, `null` / `~` / empty on the way back.
+- **JSON** — indent width and sort-keys-by-default are shipped. Not yet:
+  `null` / `~` / empty handling on the way back to YAML.
 - **Lint** — per-rule on/off + severity: duplicate keys, wrong indent step,
   tabs, trailing ws, missing `---`, line length, empty values, unquoted
   `yes/no/on/off/NO` (the "Norway problem").
-- **Profiles** — named sets (k8s / dbt / Ansible / CI), save/load/import/export.
+- **Profiles** — save/load/export/import is shipped (generic named JSON
+  profiles). Not yet: curated starter sets (k8s / dbt / Ansible / CI).
 - Follows Notepad++ dark mode.
 
 ## `yaml_tidy` — how the reindenter works
@@ -145,8 +174,9 @@ Known v1 limitations (documented in `help.txt`):
 
 Reindent/tidy · tabs→spaces · Validate · YAML→JSON + JSON→YAML · Sort keys
 with pinned keys · Lint (duplicate keys, tabs, indent step, trailing ws) ·
-Path at cursor · Settings (Indent/Keys/Lint/Profiles) · Format-on-Save ·
-About/Help · multi-document (`---`) from day one.
+Path at cursor · Settings (YAML/JSON/CSV/Parquet/Behavior + profiles,
+shipped) · Format-on-Save (shipped) · About/Help (shipped) · multi-document
+(`---`) from day one.
 
 ## Release / distribution
 

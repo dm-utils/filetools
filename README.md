@@ -14,15 +14,20 @@ Working:
   blank-line cap, single trailing newline, nesting reset at `---` / `...`).
   Block-scalar bodies, unclosed flow collections and quoted text are left
   untouched.
-- **Format on Save** (On / Off, not yet persisted).
-- **JSON**: pretty-print, minify, sort keys, escape/unescape.
-- **CSV**: align columns, compact, delimiter convert, sort by column, transpose.
-- **Parquet** (via `duckdb.exe` on PATH or next to the DLL): `Parquet → …`
-  previews a saved `.parquet` file in a new tab (read-only); `… → Parquet`
-  writes a `.parquet` file next to the current document.
+- **Format on Save** (On / Off, persisted).
+- **JSON**: pretty-print (indent from Settings), minify, sort keys, escape/unescape.
+- **CSV**: align columns (quote mode from Settings), compact, delimiter convert,
+  sort by column, transpose, add/remove quotes.
+- **Parquet** (via `duckdb.exe` on PATH, next to the DLL, or a path set in
+  Settings): `Parquet → …` previews a saved `.parquet` file in a new tab
+  (read-only); `… → Parquet` writes a `.parquet` file next to the current
+  document.
 - **Full conversion matrix** — every format submenu carries every conversion
   *from* that format, so YAML/JSON/CSV/Parquet all reach each other (YAML
   routes through JSON; to/from Parquet needs `duckdb.exe`).
+- **Settings dialog** (`Settings...`) — tabbed (YAML / JSON / CSV / Parquet /
+  Behavior), INI-persisted, with named profiles (save/load/delete,
+  export/import as JSON) — lifted from the FormatSQL plugin's dialog pattern.
 
 The menu is grouped into **YAML / JSON / CSV / Parquet** submenus (built at
 `NPPN_READY` from the flat `g_funcs` list — see `build_all_submenus`).
@@ -31,8 +36,6 @@ Stubbed / planned — see [DESIGN.md](DESIGN.md):
 
 - Validate, YAML ↔ JSON, sort keys (with pinned keys), expand anchors,
   minify/flow, lint.
-- Tabbed **Settings** dialog (indent / keys / lint / profiles) + INI/JSON
-  persistence — to be lifted from the FormatSQL plugin.
 
 ## Build
 
@@ -65,8 +68,9 @@ build\harness\test_harness.exe test_docs.yaml wide    > tests\golden_wide.txt
 ```
 src/yaml_tidy.{h,cpp}   the YAML reindenter — pure, no Windows deps, unit-tested
 src/dllmain.cpp         Notepad++ plugin glue (self-declared NPP ABI)
-src/settings.h          YamlSettings (defaults only for now)
-src/settings.rc         version resource + manifest
+src/settings.h          YamlSettings struct + load/save/dialog declarations
+src/settings_dialog.cpp tabbed Settings dialog, INI persistence, profiles, About dialog
+src/settings.rc         dialog resources, version resource + manifest
 src/test_harness.cpp    console runner
 test_docs.yaml          numbered test cases
 tests/golden_*.txt      expected output per profile

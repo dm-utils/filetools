@@ -67,21 +67,21 @@ bool needs_quote(const std::string& f, char delim) {
     return false;
 }
 
-std::string quote(const std::string& f, char delim) {
-    if (!needs_quote(f, delim)) return f;
+std::string quote(const std::string& f, char delim, bool force = false) {
+    if (!force && !needs_quote(f, delim)) return f;
     std::string o = "\"";
     for (char c : f) { if (c == '"') o += '"'; o += c; }
     o += '"';
     return o;
 }
 
-std::string write(const Grid& g, char delim, bool crlf) {
+std::string write(const Grid& g, char delim, bool crlf, bool force_quote = false) {
     std::string o;
     const char* nl = crlf ? "\r\n" : "\n";
     for (size_t r = 0; r < g.size(); ++r) {
         for (size_t c = 0; c < g[r].size(); ++c) {
             if (c) o += delim;
-            o += quote(g[r][c], delim);
+            o += quote(g[r][c], delim, force_quote);
         }
         o += nl;
     }
@@ -125,7 +125,7 @@ void json_field(const std::string& v, std::string& out) {
 
 } // namespace
 
-std::string csv_align(const std::string& src) {
+std::string csv_align(const std::string& src, bool force_quote) {
     char d = sniff_delim(src);
     Grid g = parse(src, d);
     if (g.empty()) return src;
@@ -137,7 +137,7 @@ std::string csv_align(const std::string& src) {
         q[r].resize(cols);
         for (size_t c = 0; c < cols; ++c) {
             std::string f = c < g[r].size() ? g[r][c] : std::string();
-            q[r][c] = quote(f, d);
+            q[r][c] = quote(f, d, force_quote);
             w[c] = std::max(w[c], q[r][c].size());
         }
     }
@@ -163,6 +163,18 @@ std::string csv_compact(const std::string& src) {
 
 std::string csv_to_comma(const std::string& src)     { return write(parse(src, sniff_delim(src)), ',', crlf_of(src)); }
 std::string csv_to_semicolon(const std::string& src) { return write(parse(src, sniff_delim(src)), ';', crlf_of(src)); }
+
+// Quote every field, even where the delimiter/quotes/newlines don't require it.
+std::string csv_add_quotes(const std::string& src) {
+    char d = sniff_delim(src);
+    return write(parse(src, d), d, crlf_of(src), /*force_quote=*/true);
+}
+// Re-emit with minimal quoting: write() only quotes a field when needs_quote()
+// says so, so this simply strips quotes that weren't required in the first place.
+std::string csv_remove_quotes(const std::string& src) {
+    char d = sniff_delim(src);
+    return write(parse(src, d), d, crlf_of(src), /*force_quote=*/false);
+}
 
 std::string csv_transpose(const std::string& src) {
     char d = sniff_delim(src);

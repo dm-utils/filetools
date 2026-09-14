@@ -32,7 +32,8 @@ int main(int argc, char** argv) {
 #endif
     if (argc < 2) {
         std::cerr << "usage: test_harness <file> [default|wide|validate|tojson|toyaml|"
-                     "jpretty|jmin|jsort|jesc|junesc]\n";
+                     "jpretty|jmin|jsort|jesc|junesc|calign|ccompact|ccomma|csemi|"
+                     "ctrans|csort|ctojson|jtocsv|cquote|cunquote]\n";
         return 1;
     }
     std::string src = read_file(argv[1]);
@@ -58,6 +59,8 @@ int main(int argc, char** argv) {
     if (op == "ctrans")  { std::cout << csv_transpose(src);  return 0; }
     if (op == "csort")   { std::cout << csv_sort_by_column(src, argc > 3 ? std::atoi(argv[3]) : 0); return 0; }
     if (op == "ctojson") { std::cout << csv_to_json(src) << "\n"; return 0; }
+    if (op == "cquote")   { std::cout << csv_add_quotes(src);    return 0; }
+    if (op == "cunquote") { std::cout << csv_remove_quotes(src); return 0; }
     if (op == "jtocsv")  { std::cout << json_to_csv(src);    return 0; }
 
     TidyOptions o;

@@ -29,6 +29,8 @@ for %%C in (
     "csort    csv_in.csv      csort    1"
     "ctrans   csv_in.csv      ctrans"
     "ctojson  csv_in.csv      ctojson"
+    "cquote   csv_in.csv      cquote"
+    "cunquote golden_cquote.txt cunquote"
 ) do (
     for /f "tokens=1,2,3,4" %%a in (%%C) do (
         .\build\harness\test_harness.exe tests\%%b %%a %%d > tests\actual_%%c.txt

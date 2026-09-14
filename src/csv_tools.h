@@ -10,8 +10,10 @@
 // Errors come back with a leading SOH byte "\001" (same convention as the
 // other modules) so the caller shows a message instead of replacing the buffer.
 
-std::string csv_align(const std::string& src);            // pad fields so columns line up (a view)
+std::string csv_align(const std::string& src, bool force_quote = false);  // pad fields so columns line up (a view)
 std::string csv_compact(const std::string& src);          // undo align: trim padding, minimal output
+std::string csv_add_quotes(const std::string& src);       // quote every field, even where not required
+std::string csv_remove_quotes(const std::string& src);    // strip quotes wherever they're not required
 std::string csv_to_comma(const std::string& src);         // re-emit with ',' delimiter
 std::string csv_to_semicolon(const std::string& src);     // re-emit with ';' delimiter
 std::string csv_transpose(const std::string& src);        // rows <-> columns

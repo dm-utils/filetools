@@ -48,9 +48,11 @@ Parsed with libyaml, so comments and layout are not preserved.
 
 JSON TOOLS                              data-only (libyaml)
 ----------
-  Pretty-print  re-emit with 2-space indent
+  Pretty-print  re-emit with the indent set in Settings (default 2 spaces);
+                also sorts keys if that's turned on in Settings
   Minify        re-emit compact, one line
-  Sort keys     pretty, object keys sorted A->Z recursively (array order kept)
+  Sort keys     pretty (Settings indent), object keys sorted A->Z recursively
+                (array order kept) -- always sorts, regardless of the Settings default
 
 Because the engine is a YAML parser, mildly non-standard JSON (a trailing
 comma, unquoted keys) is accepted and cleaned up rather than rejected.
@@ -68,13 +70,18 @@ Delimiter is sniffed from the first line ( , ; tab | ). Quoted fields, ""
 escapes and newlines inside quotes are handled. CR/LF style is preserved.
 
   Align columns    pad every field so columns line up (a *view* — the padding
-                   becomes real data on save, so run Compact first)
+                   becomes real data on save, so run Compact first). Quotes
+                   values per the Settings CSV quote mode (only when needed,
+                   or always).
   Compact          undo Align: trim field padding, minimal quoting
   To comma / To semicolon delimiter
   Sort by column at cursor   stable sort of the data rows by the field the
                              caret is in; header row kept on top; numeric when
                              the whole column is numbers
   Transpose        swap rows and columns
+  Add quotes       quote every field, even where the delimiter/quote/newline
+                   in the value doesn't require it
+  Remove quotes    strip quotes wherever they're not required
   CSV -> JSON      first row = keys, the rest -> an array of objects
   CSV -> YAML      via JSON
   CSV -> Parquet   see PARQUET below
@@ -86,7 +93,8 @@ pretty-print / minify / sort keys / escape / unescape.)
 PARQUET                                needs duckdb.exe
 -------
 duckdb.exe must be on your PATH or sitting next to the plugin DLL
-( plugins\FileTools\duckdb.exe ). Download: https://duckdb.org/
+( plugins\FileTools\duckdb.exe ), unless you point Settings -> Parquet at a
+specific duckdb.exe. Download: https://duckdb.org/
 
   Parquet -> CSV / JSON / YAML  (preview)
         open a saved .parquet file, then run this; the first 100 000 rows are
@@ -105,13 +113,26 @@ COPY ... TO ... (FORMAT PARQUET).
 FORMAT ON SAVE
 --------------
 "Format on Save: On" runs Reindent / tidy on every save. "Off" disables it.
-(Not persisted across restarts yet.)
+Persisted across restarts (also settable from Settings -> Behavior).
+
+
+SETTINGS
+========
+  YAML       indent step, tab width, max. consecutive blank lines, strip
+             trailing whitespace, ensure a final newline
+  JSON       pretty-print indent (2 or 4 spaces), sort keys by default
+  CSV        quote mode for Align columns: only when needed, or always
+  Parquet    override the duckdb.exe location
+  Behavior   Format on Save, plus save/load/export/import named profiles
+             (JSON files) -- same mechanism as the SQL Formatter plugin
+
+Settings persist in %APPDATA%\Notepad++\plugins\config\FileTools.ini;
+profiles are separate .json files under ...\config\FileTools_profiles\.
 
 
 NOT YET IMPLEMENTED
 -------------------
-YAML sort keys / anchor expansion / lint, CSV filter rows, and the tabbed
-Settings dialog (indent / keys / lint / profiles). See DESIGN.md.
+YAML sort keys / anchor expansion / lint, CSV filter rows. See DESIGN.md.
 
 
 LICENSE

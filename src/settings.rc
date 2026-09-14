@@ -1,6 +1,11 @@
 #define IDOK        1
 #define IDCANCEL    2
 #define WS_TABSTOP  0x00010000
+#define WS_GROUP    0x00020000
+#define WS_BORDER   0x00800000
+#define WS_VSCROLL  0x00200000
+#define LBS_NOTIFY  0x0001
+#define ES_NUMBER   0x2000
 #define RT_MANIFEST 24
 
 #include "resource.h"
@@ -36,6 +41,101 @@ BEGIN
     BEGIN
         VALUE "Translation", 0x409, 1200
     END
+END
+
+// ─── main settings dialog ─────────────────────────────────────────────────────
+
+IDD_SETTINGS DIALOG 0, 0, 420, 305
+STYLE 0x80C80040
+CAPTION "Datamodder File Tools - Settings"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LISTBOX IDC_NAV, 7, 7, 80, 265, LBS_NOTIFY | WS_VSCROLL | WS_BORDER | WS_TABSTOP
+    DEFPUSHBUTTON "Save",   IDOK,      303, 281, 50, 14
+    PUSHBUTTON    "Cancel", IDCANCEL,  360, 281, 50, 14
+END
+
+// ─── tab: YAML (shown first) ──────────────────────────────────────────────────
+
+IDD_TAB_YAML DIALOG 0, 0, 322, 130
+STYLE 0x44000040
+FONT 8, "MS Shell Dlg"
+BEGIN
+    GROUPBOX "Indentation", -1, 5, 5, 308, 70
+    LTEXT    "Indent step (spaces per level):",  -1,               13, 20, 200, 10
+    EDITTEXT IDC_YAML_INDENT,                                     250, 18,  50, 12, WS_BORDER | WS_TABSTOP | ES_NUMBER
+    LTEXT    "Tab width (spaces per tab):",       -1,               13, 38, 200, 10
+    EDITTEXT IDC_YAML_TABWIDTH,                                    250, 36,  50, 12, WS_BORDER | WS_TABSTOP | ES_NUMBER
+    LTEXT    "Max. consecutive blank lines:",     -1,               13, 56, 200, 10
+    EDITTEXT IDC_YAML_MAXBLANK,                                    250, 54,  50, 12, WS_BORDER | WS_TABSTOP | ES_NUMBER
+
+    GROUPBOX     "Cleanup", -1, 5, 80, 308, 45
+    AUTOCHECKBOX "Strip trailing whitespace", IDC_YAML_STRIP_WS, 13, 93,  280, 10, WS_GROUP | WS_TABSTOP
+    AUTOCHECKBOX "Ensure a final newline",    IDC_YAML_FINAL_NL, 13, 106, 280, 10
+END
+
+// ─── tab: JSON ────────────────────────────────────────────────────────────────
+
+IDD_TAB_JSON DIALOG 0, 0, 322, 90
+STYLE 0x44000040
+FONT 8, "MS Shell Dlg"
+BEGIN
+    GROUPBOX        "Pretty-print indent", -1, 5, 5, 308, 33
+    AUTORADIOBUTTON "2 spaces", IDC_JSON_INDENT_2, 13,  18, 80, 10, WS_GROUP | WS_TABSTOP
+    AUTORADIOBUTTON "4 spaces", IDC_JSON_INDENT_4, 100, 18, 80, 10
+
+    AUTOCHECKBOX "Sort keys by default when pretty-printing", IDC_JSON_SORT_KEYS, 13, 46, 290, 10, WS_GROUP | WS_TABSTOP
+END
+
+// ─── tab: CSV ─────────────────────────────────────────────────────────────────
+
+IDD_TAB_CSV DIALOG 0, 0, 322, 100
+STYLE 0x44000040
+FONT 8, "MS Shell Dlg"
+BEGIN
+    GROUPBOX        "Quoting", -1, 5, 5, 308, 45
+    AUTORADIOBUTTON "Only when needed  (value contains the delimiter, a quote or a newline)",
+                    IDC_CSV_QUOTE_IFNEEDED, 13, 18, 290, 10, WS_GROUP | WS_TABSTOP
+    AUTORADIOBUTTON "Always", IDC_CSV_QUOTE_ALWAYS, 13, 31, 290, 10
+
+    LTEXT "Applies to Align columns. Use CSV \x2192 Add quotes / Remove quotes from the menu for a one-off pass over a file.",
+          -1, 13, 56, 290, 30
+END
+
+// ─── tab: Parquet ─────────────────────────────────────────────────────────────
+
+IDD_TAB_PARQUET DIALOG 0, 0, 322, 70
+STYLE 0x44000040
+FONT 8, "MS Shell Dlg"
+BEGIN
+    GROUPBOX "duckdb.exe location", -1, 5, 5, 308, 55
+    LTEXT    "Leave empty to search PATH, then next to the plugin DLL:", -1, 13, 18, 290, 10
+    EDITTEXT IDC_DUCKDB_PATH,                                                13, 32, 230, 14, WS_BORDER | WS_TABSTOP
+    PUSHBUTTON "Browse...", IDC_DUCKDB_BROWSE,                              250, 32,  55, 14
+END
+
+// ─── tab: Behavior & Profiles ─────────────────────────────────────────────────
+
+IDD_TAB_BEHAVIOR DIALOG 0, 0, 322, 262
+STYLE 0x44000040
+FONT 8, "MS Shell Dlg"
+BEGIN
+    GROUPBOX     "Behavior", -1, 5, 5, 308, 30
+    AUTOCHECKBOX "Format on Save  (reindent YAML automatically when saving)",
+                 IDC_FORMAT_ON_SAVE, 13, 18, 290, 10, WS_GROUP | WS_TABSTOP
+
+    GROUPBOX "Saved profiles", -1, 5, 40, 308, 155
+    LISTBOX IDC_PROFILE_LIST,                    13,  53, 195, 135, LBS_NOTIFY | WS_VSCROLL | WS_BORDER | WS_TABSTOP
+    PUSHBUTTON "Load",   IDC_PROFILE_LOAD,       213, 53,  92, 14
+    PUSHBUTTON "Delete", IDC_PROFILE_DELETE,     213, 71,  92, 14
+
+    GROUPBOX "Save current settings as profile", -1, 5, 198, 308, 35
+    LTEXT    "Name:", -1,                         13, 213,  30, 10
+    EDITTEXT IDC_PROFILE_NAME,                    45, 212, 160, 12, WS_BORDER | WS_TABSTOP
+    PUSHBUTTON "Save", IDC_PROFILE_SAVE,         210, 210,  95, 14
+
+    PUSHBUTTON "Export to JSON...",   IDC_PROFILE_EXPORT,   5, 240, 148, 14
+    PUSHBUTTON "Import from JSON...", IDC_PROFILE_IMPORT, 158, 240, 148, 14
 END
 
 // ─── about dialog ─────────────────────────────────────────────────────────────
