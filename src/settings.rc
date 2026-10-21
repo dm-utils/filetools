@@ -98,7 +98,7 @@ BEGIN
                     IDC_CSV_QUOTE_IFNEEDED, 13, 18, 290, 10, WS_GROUP | WS_TABSTOP
     AUTORADIOBUTTON "Always", IDC_CSV_QUOTE_ALWAYS, 13, 31, 290, 10
 
-    LTEXT "Applies to Align columns. Use CSV \x2192 Add quotes / Remove quotes from the menu for a one-off pass over a file.",
+    LTEXT "Applies to Align columns. Use CSV -> Add quotes / Remove quotes from the menu for a one-off pass over a file.",
           -1, 13, 56, 290, 30
 END
 
