@@ -1,8 +1,8 @@
 #pragma once
 
-#define FILETOOLS_VERSION       "1.3.1.4"
-#define FILETOOLS_VERSION_W     L"1.3.1.4"
-#define FILETOOLS_VERSION_COMMA 1,3,1,4
+#define FILETOOLS_VERSION       "1.3.1.5"
+#define FILETOOLS_VERSION_W     L"1.3.1.5"
+#define FILETOOLS_VERSION_COMMA 1,3,1,5
 
 // ─── main settings dialog ────────────────────────────────────────────────────
 #define IDD_SETTINGS       101
