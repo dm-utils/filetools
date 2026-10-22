@@ -4,3 +4,4 @@ release_staging/
 YamlTools.zip
 tests/actual_*.txt
 vendor/libyaml/
+DESIGN.md

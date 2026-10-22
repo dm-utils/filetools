@@ -32,7 +32,7 @@ Working:
 The menu is grouped into **YAML / JSON / CSV / Parquet** submenus (built at
 `NPPN_READY` from the flat `g_funcs` list — see `build_all_submenus`).
 
-Stubbed / planned — see [DESIGN.md](DESIGN.md):
+Planned:
 
 - Validate, YAML ↔ JSON, sort keys (with pinned keys), expand anchors,
   minify/flow, lint.

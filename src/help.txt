@@ -132,7 +132,7 @@ profiles are separate .json files under ...\config\FileTools_profiles\.
 
 NOT YET IMPLEMENTED
 -------------------
-YAML sort keys / anchor expansion / lint, CSV filter rows. See DESIGN.md.
+YAML sort keys / anchor expansion / lint, CSV filter rows.
 
 
 LICENSE
