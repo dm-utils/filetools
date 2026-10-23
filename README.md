@@ -3,6 +3,10 @@
 A Notepad++ plugin for tidying, validating and converting text data formats
 (YAML, JSON, CSV) plus a read-only Parquet preview.
 
+**Website:** [datamodder.com/en/utils/file-tools](https://datamodder.com/en/utils/file-tools)
+— features, [settings with examples](https://datamodder.com/en/utils/file-tools/settings)
+and the [full conversion matrix](https://datamodder.com/en/utils/file-tools/features/conversion-matrix).
+
 **64-bit Notepad++ only.**
 
 ## Status
