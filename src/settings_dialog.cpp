@@ -66,7 +66,20 @@ void save_settings() {
 
     ws(L"Parquet", L"DuckdbPath", to_wide(g_settings.duckdb_path).c_str());
 
-    ws(L"General", L"FormatOnSave", bool_str(g_settings.format_on_save));
+    // Format on Save is session-only (off after every restart); drop the key
+    // that versions before 1.3.1.6 persisted.
+    ws(L"General", L"FormatOnSave", nullptr);
+}
+
+bool confirm_format_on_save(HWND owner) {
+    return MessageBoxW(owner,
+        L"Format on Save reindents a file every time you save it.\n\n"
+        L"Only files with the extension .yaml or .yml are reindented. "
+        L"All other files are left untouched.\n\n"
+        L"This option switches itself off again when Notepad++ restarts.\n\n"
+        L"Turn Format on Save on?",
+        L"Datamodder File Tools - Format on Save",
+        MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK;
 }
 
 void load_settings() {
@@ -90,7 +103,7 @@ void load_settings() {
     GetPrivateProfileStringW(L"Parquet", L"DuckdbPath", L"", buf, MAX_PATH, f);
     g_settings.duckdb_path = to_narrow(buf);
 
-    g_settings.format_on_save = GetPrivateProfileIntW(L"General", L"FormatOnSave", 0, f) != 0;
+    g_settings.format_on_save = false;  // session-only, never read back from the .ini
 }
 
 // ─── JSON serialization ───────────────────────────────────────────────────────
@@ -146,7 +159,6 @@ static std::string settings_to_json(const YamlSettings& s) {
     lines.push_back(jbool("json_sort_keys", s.json_sort_keys));
     lines.push_back(jstr("csv_quote_mode", s.csv_quote_mode == CsvQuoteMode::Always ? "always" : "ifneeded"));
     lines.push_back(jstr("duckdb_path",    s.duckdb_path.c_str()));
-    lines.push_back(jbool("format_on_save", s.format_on_save));
     for (size_t i = 0; i < lines.size(); ++i)
         j += lines[i] + (i + 1 < lines.size() ? ",\n" : "\n");
     j += "}\n";
@@ -172,7 +184,8 @@ static YamlSettings settings_from_json(const std::string& j) {
 
     s.duckdb_path = gs("duckdb_path");
 
-    s.format_on_save = gb("format_on_save", false);
+    // Not part of a profile: loading one keeps the current session's choice.
+    s.format_on_save = g_settings.format_on_save;
 
     return s;
 }
@@ -445,7 +458,12 @@ static void ui_to_settings() {
     GetDlgItemTextW(P_PARQUET, IDC_DUCKDB_PATH, wbuf, MAX_PATH);
     g_settings.duckdb_path = to_narrow(wbuf);
 
-    g_settings.format_on_save = chk_set(P_BEHAVIOR, IDC_FORMAT_ON_SAVE);
+    bool fos = chk_set(P_BEHAVIOR, IDC_FORMAT_ON_SAVE);
+    if (fos && !g_settings.format_on_save && !confirm_format_on_save(GetParent(P_BEHAVIOR))) {
+        fos = false;
+        CheckDlgButton(P_BEHAVIOR, IDC_FORMAT_ON_SAVE, BST_UNCHECKED);
+    }
+    g_settings.format_on_save = fos;
 }
 
 // ─── settings dialog ──────────────────────────────────────────────────────────

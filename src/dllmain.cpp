@@ -53,6 +53,8 @@ enum {
     NPPM_DOOPEN              = 2101,
     NPPM_MENUCOMMAND        = 2072,   // NPPMSG + 48
     NPPM_GETFULLCURRENTPATH  = 4025,   // RUNCOMMAND_USER (WM_USER + 3000) + FULL_CURRENT_PATH
+    NPPM_GETFULLPATHFROMBUFFERID = 2082, // NPPMSG + 58
+    NPPM_GETCURRENTBUFFERID  = 2084,   // NPPMSG + 60
     IDM_FILE_NEW            = 41001,
     NPPN_READY              = 1001,
     NPPN_FILEBEFORESAVE      = 1007,
@@ -511,8 +513,25 @@ static void cmd_csv_to_parquet()  { export_parquet(Fmt::Csv); }
 static void cmd_json_to_parquet() { export_parquet(Fmt::Json); }
 static void cmd_yaml_to_parquet() { export_parquet(Fmt::Yaml); }
 
-static void cmd_fos_on()  { g_settings.format_on_save = true;  save_settings(); }
-static void cmd_fos_off() { g_settings.format_on_save = false; save_settings(); }
+// Format on Save is deliberately session-only: it is never written to the
+// .ini, so it is off again after every Notepad++ restart.
+static void cmd_fos_on() {
+    if (g_settings.format_on_save || confirm_format_on_save(g_npp._nppHandle))
+        g_settings.format_on_save = true;
+}
+static void cmd_fos_off() { g_settings.format_on_save = false; }
+
+// Only the buffer being saved, and only a .yaml/.yml file: Save All and saving
+// a .json/.py/... file must never be reindented.
+static bool is_yaml_buffer(UINT_PTR buf) {
+    LRESULT n = SendMessage(g_npp._nppHandle, NPPM_GETFULLPATHFROMBUFFERID, (WPARAM)buf, 0);
+    if (n <= 0) return false;
+    std::wstring path((size_t)n + 1, L'\0');
+    SendMessage(g_npp._nppHandle, NPPM_GETFULLPATHFROMBUFFERID, (WPARAM)buf, (LPARAM)&path[0]);
+    path.resize((size_t)n);
+    const wchar_t* dot = wcsrchr(path.c_str(), L'.');
+    return dot && (_wcsicmp(dot, L".yaml") == 0 || _wcsicmp(dot, L".yml") == 0);
+}
 static void cmd_settings() { show_settings_dialog(g_npp._nppHandle); }
 static void cmd_about()    { show_about_dialog(g_npp._nppHandle); }
 static void cmd_help() {
@@ -643,6 +662,9 @@ __declspec(dllexport) FuncItem* getFuncsArray(int* n) { *n = NFUNCS; return g_fu
 __declspec(dllexport) void beNotified(SCNotification* n) {
     if (n->code == NPPN_READY) try_build_menu();
     if ((n->code == NPPN_FILEBEFORESAVE || n->code == NPPN_FILESAVED) && g_settings.format_on_save) {
+        UINT_PTR saved = (UINT_PTR)n->idFrom;
+        UINT_PTR current = (UINT_PTR)SendMessage(g_npp._nppHandle, NPPM_GETCURRENTBUFFERID, 0, 0);
+        if (saved != current || !is_yaml_buffer(saved)) return;
         DWORD now = GetTickCount();
         if (now - g_save_tick > 1000) { g_save_tick = now; cmd_tidy(); }
     }

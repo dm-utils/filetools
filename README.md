@@ -18,7 +18,7 @@ Working:
   blank-line cap, single trailing newline, nesting reset at `---` / `...`).
   Block-scalar bodies, unclosed flow collections and quoted text are left
   untouched.
-- **Format on Save** (On / Off, persisted).
+- **Format on Save** (On / Off) — reindents `.yaml`/`.yml` files only; off again after a Notepad++ restart.
 - **JSON**: pretty-print (indent from Settings), minify, sort keys, escape/unescape.
 - **CSV**: align columns (quote mode from Settings), compact, delimiter convert,
   sort by column, transpose, add/remove quotes.

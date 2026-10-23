@@ -112,8 +112,10 @@ COPY ... TO ... (FORMAT PARQUET).
 
 FORMAT ON SAVE
 --------------
-"Format on Save: On" runs Reindent / tidy on every save. "Off" disables it.
-Persisted across restarts (also settable from Settings -> Behavior).
+"Format on Save: On" runs Reindent / tidy every time you save a .yaml or
+.yml file. Other files are never touched. "Off" disables it. Turning it on
+asks for confirmation (also from Settings -> Behavior), and it switches
+itself off again when Notepad++ restarts. It is not stored in profiles.
 
 
 SETTINGS

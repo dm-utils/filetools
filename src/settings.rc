@@ -121,7 +121,7 @@ STYLE 0x44000040
 FONT 8, "MS Shell Dlg"
 BEGIN
     GROUPBOX     "Behavior", -1, 5, 5, 308, 30
-    AUTOCHECKBOX "Format on Save  (reindent YAML automatically when saving)",
+    AUTOCHECKBOX "Format on Save  (reindent .yaml/.yml files on save; off after restart)",
                  IDC_FORMAT_ON_SAVE, 13, 18, 290, 10, WS_GROUP | WS_TABSTOP
 
     GROUPBOX "Saved profiles", -1, 5, 40, 308, 155
