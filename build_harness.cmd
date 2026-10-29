@@ -14,12 +14,12 @@ call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
 
 mkdir build\harness 2>nul
 
-set "YAMLFLAGS="
-set "YAMLSRC="
-if exist "vendor\libyaml\src\api.c" (
-    set "YAMLFLAGS=/I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML"
-    set "YAMLSRC=vendor\libyaml\src\*.c"
+if not exist "vendor\libyaml\src\api.c" (
+    echo libyaml is missing. Run: git submodule update --init
+    exit /b 1
 )
+set "YAMLFLAGS=/I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML"
+set "YAMLSRC=vendor\libyaml\src\*.c"
 
 cl /nologo /O2 /EHsc /std:c++17 /utf-8 %YAMLFLAGS% ^
    src\test_harness.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp %YAMLSRC% ^

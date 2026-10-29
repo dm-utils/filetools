@@ -43,9 +43,13 @@ Planned:
 
 ## Build
 
-Visual Studio C++ build tools required. From an **elevated** terminal:
+Visual Studio C++ build tools required. libyaml comes in as a git submodule,
+so clone with `--recursive` (or run `git submodule update --init` in an
+existing clone). Then, from an **elevated** terminal:
 
 ```
+git clone --recursive https://github.com/dm-utils/filetools.git
+cd filetools
 build.cmd
 ```
 

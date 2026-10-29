@@ -19,14 +19,13 @@ mkdir build 2>nul
 rc.exe /nologo /fo build\settings.res src\settings.rc
 if errorlevel 1 ( echo Resource compile failed & exit /b 1 )
 
-:: -- libyaml (optional, see vendor/VENDORING.md) --
-set "YAMLFLAGS="
-set "YAMLSRC="
-if exist "vendor\libyaml\src\api.c" (
-    echo Using vendored libyaml.
-    set "YAMLFLAGS=/I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML"
-    set "YAMLSRC=vendor\libyaml\src\*.c"
+:: -- libyaml (git submodule, see vendor/VENDORING.md) --
+if not exist "vendor\libyaml\src\api.c" (
+    echo libyaml is missing. Run: git submodule update --init
+    exit /b 1
 )
+set "YAMLFLAGS=/I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML"
+set "YAMLSRC=vendor\libyaml\src\*.c"
 
 :: -- Compile and link (options before sources to avoid D9026) --
 cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 %YAMLFLAGS% ^
