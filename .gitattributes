@@ -5,3 +5,4 @@ tests/*.csv          -text
 tests/*.json         -text
 tests/*.yaml         -text
 test_docs.yaml       -text
+tests/*.txt          -text
