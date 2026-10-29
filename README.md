@@ -7,7 +7,7 @@ A Notepad++ plugin for tidying, validating and converting text data formats
 — features, [settings with examples](https://datamodder.com/en/utils/file-tools/settings)
 and the [full conversion matrix](https://datamodder.com/en/utils/file-tools/features/conversion-matrix).
 
-**64-bit Notepad++ only.**
+For 64-bit, 32-bit and ARM64 Notepad++.
 
 ## Status
 
@@ -62,10 +62,11 @@ to `C:\Program Files\Notepad++\plugins\FileTools`, and restarts Notepad++.
 release.cmd
 ```
 
-Builds `FileTools.dll` for x64, x86 (Win32) and ARM64 and zips each with
-`help.txt` into `release_staging\FileTools_<arch>.zip`, printing the SHA-256
-the plugin lists need. ARM64 needs the "MSVC C++ ARM64/ARM64EC build tools"
-component of Visual Studio.
+Builds `FileTools.dll` and zips it with `help.txt` into
+`release_staging\FileTools.zip` (x64) or `FileTools_<arch>.zip`, printing the
+SHA-256 the plugin lists need. By default only x64; `release.cmd x64 x86 arm64` (or the commented line
+in the script) also builds the Win32 and ARM64 versions. ARM64 needs the
+"MSVC C++ ARM64/ARM64EC build tools" component of Visual Studio.
 
 ## Test
 

@@ -3,11 +3,11 @@ setlocal
 cd /d "%~dp0"
 
 :: Builds FileTools.dll for each Notepad++ flavour (x64, x86 = Win32, arm64)
-:: and zips it with help.txt into release_staging\FileTools_<arch>.zip, for the
-:: GitHub release and the plugin lists (pl.x64.json, pl.x86.json, pl.arm64.json).
+:: and zips it with help.txt into release_staging\FileTools.zip (x64) or
+:: FileTools_<arch>.zip, for the GitHub release and the plugin lists (pl.x64.json, pl.x86.json, pl.arm64.json).
 :: Prints the SHA-256 of each zip, which the plugin lists use as "id".
-::   release.cmd              all three
-::   release.cmd x64 x86      only these
+::   release.cmd              x64 only (see below to build all three)
+::   release.cmd x64 x86 arm64  these
 
 :: -- Find Visual Studio --
 set VSWHERE="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -23,7 +23,9 @@ if not exist "vendor\libyaml\src\api.c" (
 )
 
 set "ARCHS=%*"
-if "%ARCHS%"=="" set "ARCHS=x64 x86 arm64"
+if "%ARCHS%"=="" set "ARCHS=x64"
+:: Win32 and ARM64 Notepad++ are rare; uncomment to build those as well.
+:: if "%ARCHS%"=="x64" set "ARCHS=x64 x86 arm64"
 mkdir release_staging 2>nul
 
 for %%A in (%ARCHS%) do (
@@ -33,8 +35,14 @@ for %%A in (%ARCHS%) do (
 echo.
 echo Release zips in release_staging\ - SHA-256 for the plugin lists:
 for %%A in (%ARCHS%) do (
-    for /f "skip=1 tokens=*" %%h in ('certutil -hashfile "release_staging\FileTools_%%A.zip" SHA256 ^| findstr /v "CertUtil"') do echo   %%A  %%h
+    set "ZIP=FileTools_%%A.zip"
+    if "%%A"=="x64" set "ZIP=FileTools.zip"
+    call :hash %%A
 )
+exit /b 0
+
+:hash
+for /f "skip=1 tokens=*" %%h in ('certutil -hashfile "release_staging\%ZIP%" SHA256 ^| findstr /v "CertUtil"') do echo   %1  %ZIP%  %%h
 exit /b 0
 
 :: -- One architecture: compile with the matching (cross) compiler, then zip --
@@ -65,8 +73,10 @@ cl /nologo /LD /O2 /EHsc /std:c++17 /MT /utf-8 /W3 ^
    /Fo:"%OUT%\\" ^
    /link user32.lib shell32.lib comctl32.lib comdlg32.lib
 if errorlevel 1 ( echo Build failed for %ARCH% & exit /b 1 )
-del /q "release_staging\FileTools_%ARCH%.zip" 2>nul
-powershell -NoProfile -Command "Compress-Archive -Path '%OUT%\FileTools.dll','src\help.txt' -DestinationPath 'release_staging\FileTools_%ARCH%.zip'"
+set "ZIP=FileTools_%ARCH%.zip"
+if "%ARCH%"=="x64" set "ZIP=FileTools.zip"
+del /q "release_staging\%ZIP%" 2>nul
+powershell -NoProfile -Command "Compress-Archive -Path '%OUT%\FileTools.dll','src\help.txt' -DestinationPath 'release_staging\%ZIP%'"
 if errorlevel 1 ( echo Zip failed for %ARCH% & exit /b 1 )
 endlocal
 exit /b 0
