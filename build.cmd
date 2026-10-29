@@ -52,7 +52,7 @@ if errorlevel 1 ( echo Help file copy failed & exit /b 1 )
 :: -- Restart Notepad++ --
 :: Via explorer.exe, so Notepad++ never inherits this (elevated) prompt's
 :: admin rights - an elevated Notepad++ ignores messages from normal apps.
-explorer.exe "C:\Program Files\Notepad++\notepad++.exe"
+if exist "C:\Program Files\Notepad++\notepad++.exe" ( explorer.exe "C:\Program Files\Notepad++\notepad++.exe" )
 
 echo Build and deploy complete.
 exit /b 0
