@@ -1,7 +1,8 @@
 DATAMODDER FILE TOOLS
 =====================
 A Notepad++ plugin for tidying, validating and converting text data formats:
-YAML, JSON and CSV, plus Parquet via DuckDB. 64-bit Notepad++ only.
+YAML, JSON and CSV, plus Parquet via DuckDB. For Notepad++ 8.3 or later:
+64-bit, 32-bit or ARM64.
 
 The menu is grouped: Reindent / tidy on top, then the YAML, JSON, CSV and
 Parquet submenus, then Format on Save and Settings / About / Help. Each format
