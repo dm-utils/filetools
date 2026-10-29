@@ -56,6 +56,17 @@ build.cmd
 Compiles the plugin, closes Notepad++, deploys `FileTools.dll` + `help.txt`
 to `C:\Program Files\Notepad++\plugins\FileTools`, and restarts Notepad++.
 
+## Release
+
+```
+release.cmd
+```
+
+Builds `FileTools.dll` for x64, x86 (Win32) and ARM64 and zips each with
+`help.txt` into `release_staging\FileTools_<arch>.zip`, printing the SHA-256
+the plugin lists need. ARM64 needs the "MSVC C++ ARM64/ARM64EC build tools"
+component of Visual Studio.
+
 ## Test
 
 ```

@@ -1,0 +1,72 @@
+@echo off
+setlocal
+cd /d "%~dp0"
+
+:: Builds FileTools.dll for each Notepad++ flavour (x64, x86 = Win32, arm64)
+:: and zips it with help.txt into release_staging\FileTools_<arch>.zip, for the
+:: GitHub release and the plugin lists (pl.x64.json, pl.x86.json, pl.arm64.json).
+:: Prints the SHA-256 of each zip, which the plugin lists use as "id".
+::   release.cmd              all three
+::   release.cmd x64 x86      only these
+
+:: -- Find Visual Studio --
+set VSWHERE="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist %VSWHERE% ( echo vswhere.exe not found & exit /b 1 )
+for /f "usebackq tokens=*" %%i in (
+    `%VSWHERE% -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`
+) do set VS_PATH=%%i
+if "%VS_PATH%"=="" ( echo VS C++ tools not found & exit /b 1 )
+
+if not exist "vendor\libyaml\src\api.c" (
+    echo libyaml is missing. Run: git submodule update --init
+    exit /b 1
+)
+
+set "ARCHS=%*"
+if "%ARCHS%"=="" set "ARCHS=x64 x86 arm64"
+mkdir release_staging 2>nul
+
+for %%A in (%ARCHS%) do (
+    call :build %%A
+    if errorlevel 1 exit /b 1
+)
+echo.
+echo Release zips in release_staging\ - SHA-256 for the plugin lists:
+for %%A in (%ARCHS%) do (
+    for /f "skip=1 tokens=*" %%h in ('certutil -hashfile "release_staging\FileTools_%%A.zip" SHA256 ^| findstr /v "CertUtil"') do echo   %%A  %%h
+)
+exit /b 0
+
+:: -- One architecture: compile with the matching (cross) compiler, then zip --
+:build
+setlocal
+set "ARCH=%1"
+if "%ARCH%"=="x64" ( set "VCARG=x64" ) else if "%ARCH%"=="x86" ( set "VCARG=x64_x86" ) else if "%ARCH%"=="arm64" ( set "VCARG=x64_arm64" ) else (
+    echo Unknown architecture %ARCH%; use x64, x86 or arm64.
+    exit /b 1
+)
+call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" %VCARG% >nul 2>&1
+if not "%VSCMD_ARG_TGT_ARCH%"=="%ARCH%" (
+    echo No C++ compiler for %ARCH%. In the Visual Studio Installer, add
+    echo "MSVC C++ ARM64/ARM64EC build tools" ^(for arm64^) and try again.
+    exit /b 1
+)
+echo === %ARCH% ===
+set "OUT=build\%ARCH%"
+mkdir "%OUT%" 2>nul
+rc.exe /nologo /fo "%OUT%\settings.res" src\settings.rc
+if errorlevel 1 ( echo Resource compile failed & exit /b 1 )
+cl /nologo /LD /O2 /EHsc /std:c++17 /MT /utf-8 /W3 ^
+   /I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML ^
+   src\dllmain.cpp src\settings_dialog.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp ^
+   vendor\libyaml\src\*.c ^
+   "%OUT%\settings.res" ^
+   /Fe:"%OUT%\FileTools.dll" ^
+   /Fo:"%OUT%\\" ^
+   /link user32.lib shell32.lib comctl32.lib comdlg32.lib
+if errorlevel 1 ( echo Build failed for %ARCH% & exit /b 1 )
+del /q "release_staging\FileTools_%ARCH%.zip" 2>nul
+powershell -NoProfile -Command "Compress-Archive -Path '%OUT%\FileTools.dll','src\help.txt' -DestinationPath 'release_staging\FileTools_%ARCH%.zip'"
+if errorlevel 1 ( echo Zip failed for %ARCH% & exit /b 1 )
+endlocal
+exit /b 0
