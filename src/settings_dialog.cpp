@@ -9,67 +9,26 @@
 #include <algorithm>
 #include <cctype>
 #include "settings.h"
+#include "settings_io.h"
 #include "resource.h"
 
 extern HINSTANCE g_module;
 
 YamlSettings g_settings;
 
-// ─── INI persistence ──────────────────────────────────────────────────────────
+// ─── INI persistence (read/write lives in settings_io.cpp, shared with the CLI) ──
 
 static std::wstring get_ini_path() {
-    wchar_t appdata[MAX_PATH] = {};
-    GetEnvironmentVariableW(L"APPDATA", appdata, MAX_PATH);
-    std::wstring dir = std::wstring(appdata) + L"\\Notepad++\\plugins\\config";
-    CreateDirectoryW(dir.c_str(), nullptr);
-    return dir + L"\\FileTools.ini";
+    std::wstring p = default_ini_path();
+    CreateDirectoryW(p.substr(0, p.find_last_of(L'\\')).c_str(), nullptr);
+    return p;
 }
 
-static const wchar_t* bool_str(bool v) { return v ? L"1" : L"0"; }
+static std::wstring to_wide(const std::string& s) { return settings_widen(s); }
+static std::string  to_narrow(const wchar_t* w)   { return settings_narrow(w); }
 
-static std::wstring to_wide(const std::string& s) {
-    if (s.empty()) return L"";
-    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
-    std::wstring w(n, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), w.data(), n);
-    return w;
-}
-static std::string to_narrow(const wchar_t* w) {
-    if (!*w) return "";
-    int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
-    std::string s(n > 0 ? n - 1 : 0, '\0');
-    if (n > 0) WideCharToMultiByte(CP_UTF8, 0, w, -1, s.data(), n, nullptr, nullptr);
-    return s;
-}
-
-void save_settings() {
-    std::wstring p = get_ini_path();
-    const wchar_t* f = p.c_str();
-    auto ws = [&](LPCWSTR sec, LPCWSTR key, LPCWSTR val) {
-        WritePrivateProfileStringW(sec, key, val, f);
-    };
-    auto wi = [&](LPCWSTR sec, LPCWSTR key, int val) {
-        wchar_t buf[16]; wsprintfW(buf, L"%d", val);
-        WritePrivateProfileStringW(sec, key, buf, f);
-    };
-
-    wi(L"YAML", L"IndentStep", g_settings.tidy.indent_step);
-    wi(L"YAML", L"TabWidth",   g_settings.tidy.tab_width);
-    wi(L"YAML", L"MaxBlank",   g_settings.tidy.max_blank);
-    ws(L"YAML", L"StripTrailingWs", bool_str(g_settings.tidy.strip_trailing_ws));
-    ws(L"YAML", L"FinalNewline",    bool_str(g_settings.tidy.final_newline));
-
-    ws(L"JSON", L"Indent",    g_settings.json_indent == JsonIndent::Four ? L"4" : L"2");
-    ws(L"JSON", L"SortKeys",  bool_str(g_settings.json_sort_keys));
-
-    ws(L"CSV", L"QuoteMode", g_settings.csv_quote_mode == CsvQuoteMode::Always ? L"always" : L"ifneeded");
-
-    ws(L"Parquet", L"DuckdbPath", to_wide(g_settings.duckdb_path).c_str());
-
-    // Format on Save is session-only (off after every restart); drop the key
-    // that versions before 1.3.1.6 persisted.
-    ws(L"General", L"FormatOnSave", nullptr);
-}
+void save_settings() { write_settings_ini(get_ini_path(), g_settings); }
+void load_settings() { g_settings = read_settings_ini(get_ini_path()); }
 
 bool confirm_format_on_save(HWND owner) {
     return MessageBoxW(owner,
@@ -80,30 +39,6 @@ bool confirm_format_on_save(HWND owner) {
         L"Turn Format on Save on?",
         L"Datamodder File Tools - Format on Save",
         MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) == IDOK;
-}
-
-void load_settings() {
-    std::wstring p = get_ini_path();
-    const wchar_t* f = p.c_str();
-    wchar_t buf[MAX_PATH] = {};
-
-    g_settings.tidy.indent_step = (int)GetPrivateProfileIntW(L"YAML", L"IndentStep", 2, f);
-    g_settings.tidy.tab_width   = (int)GetPrivateProfileIntW(L"YAML", L"TabWidth",   2, f);
-    g_settings.tidy.max_blank   = (int)GetPrivateProfileIntW(L"YAML", L"MaxBlank",   1, f);
-    g_settings.tidy.strip_trailing_ws = GetPrivateProfileIntW(L"YAML", L"StripTrailingWs", 1, f) != 0;
-    g_settings.tidy.final_newline     = GetPrivateProfileIntW(L"YAML", L"FinalNewline",    1, f) != 0;
-
-    GetPrivateProfileStringW(L"JSON", L"Indent", L"2", buf, 64, f);
-    g_settings.json_indent = wcscmp(buf, L"4") == 0 ? JsonIndent::Four : JsonIndent::Two;
-    g_settings.json_sort_keys = GetPrivateProfileIntW(L"JSON", L"SortKeys", 0, f) != 0;
-
-    GetPrivateProfileStringW(L"CSV", L"QuoteMode", L"ifneeded", buf, 64, f);
-    g_settings.csv_quote_mode = wcscmp(buf, L"always") == 0 ? CsvQuoteMode::Always : CsvQuoteMode::OnlyIfNeeded;
-
-    GetPrivateProfileStringW(L"Parquet", L"DuckdbPath", L"", buf, MAX_PATH, f);
-    g_settings.duckdb_path = to_narrow(buf);
-
-    g_settings.format_on_save = false;  // session-only, never read back from the .ini
 }
 
 // ─── JSON serialization ───────────────────────────────────────────────────────

@@ -6,6 +6,7 @@
 #include "yaml_convert.h"
 #include "json_tools.h"
 #include "csv_tools.h"
+#include "parquet_tools.h"
 #include "settings.h"
 #include "resource.h"
 
@@ -330,61 +331,20 @@ static void cmd_csv_sort() {
 // YAML is not a format DuckDB knows, so the YAML directions route through JSON
 // (yaml_to_json on the way in, json_to_yaml on the way out).
 
-enum class Fmt { Csv, Json, Yaml };
+using parquet::Fmt;
 
-// Run cmdline, capture stdout+stderr into `out`. Returns the process exit code,
-// or -1 if it could not be started.
-static int run_capture(const std::wstring& cmdline, std::string& out) {
-    SECURITY_ATTRIBUTES sa = { sizeof sa, nullptr, TRUE };
-    HANDLE rd = nullptr, wr = nullptr;
-    if (!CreatePipe(&rd, &wr, &sa, 0)) return -1;
-    SetHandleInformation(rd, HANDLE_FLAG_INHERIT, 0);
-
-    STARTUPINFOW si = { sizeof si };
-    si.dwFlags    = STARTF_USESTDHANDLES;
-    si.hStdOutput = wr;
-    si.hStdError  = wr;
-    si.hStdInput  = GetStdHandle(STD_INPUT_HANDLE);
-
-    std::wstring cl = cmdline;   // CreateProcessW may modify the buffer
-    PROCESS_INFORMATION pi = {};
-    BOOL ok = CreateProcessW(nullptr, &cl[0], nullptr, nullptr, TRUE,
-                             CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
-    CloseHandle(wr);
-    if (!ok) { CloseHandle(rd); return -1; }
-
-    char buf[4096];
-    DWORD n = 0;
-    while (ReadFile(rd, buf, sizeof buf, &n, nullptr) && n) out.append(buf, n);
-    CloseHandle(rd);
-
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    DWORD code = 1;
-    GetExitCodeProcess(pi.hProcess, &code);
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-    return (int)code;
-}
-
-// Locate duckdb.exe: PATH, then next to this DLL. Empty + a message box if
-// it can't be found anywhere.
+// Locate duckdb.exe (settings path, PATH, next to the DLL); message box if absent.
 static std::wstring duckdb_or_warn() {
-    if (!g_settings.duckdb_path.empty()) {
-        std::wstring w = widen(g_settings.duckdb_path);
-        if (GetFileAttributesW(w.c_str()) != INVALID_FILE_ATTRIBUTES) return w;
-    }
-    wchar_t found[MAX_PATH] = {};
-    if (SearchPathW(nullptr, L"duckdb", L".exe", MAX_PATH, found, nullptr)) return found;
     wchar_t here[MAX_PATH] = {};
     GetModuleFileNameW(g_module, here, MAX_PATH);
-    if (wchar_t* s = wcsrchr(here, L'\\')) {
-        wcscpy_s(s + 1, MAX_PATH - (s + 1 - here), L"duckdb.exe");
-        if (GetFileAttributesW(here) != INVALID_FILE_ATTRIBUTES) return here;
-    }
-    msg(L"duckdb.exe niet gevonden. Zet 'm op je PATH of naast de plugin "
-        L"(plugins\\FileTools\\duckdb.exe). Download: https://duckdb.org/",
-        MB_ICONWARNING);
-    return L"";
+    std::wstring dir = here;
+    dir = dir.substr(0, dir.find_last_of(L'\\'));
+    std::wstring duck = parquet::find_duckdb(g_settings.duckdb_path, dir);
+    if (duck.empty())
+        msg(L"duckdb.exe niet gevonden. Zet 'm op je PATH of naast de plugin "
+            L"(plugins\FileTools\duckdb.exe). Download: https://duckdb.org/",
+            MB_ICONWARNING);
+    return duck;
 }
 
 // Full path of the current document ("" if the buffer was never saved).
@@ -403,13 +363,6 @@ static std::wstring lower_ext(const std::wstring& p) {
     return e;
 }
 
-// Backslashes -> forward slashes, so the path is safe inside a single-quoted
-// DuckDB SQL string literal.
-static std::wstring fwd(std::wstring p) {
-    for (auto& c : p) if (c == L'\\') c = L'/';
-    return p;
-}
-
 // Parquet -> CSV / JSON / YAML : dump the rows into a fresh tab. Read-only.
 static void preview_parquet(Fmt to) {
     std::wstring p = current_doc_path();
@@ -421,23 +374,9 @@ static void preview_parquet(Fmt to) {
     std::wstring duck = duckdb_or_warn();
     if (duck.empty()) return;
 
-    // YAML has no DuckDB writer — ask for JSON and convert it afterwards.
-    const wchar_t* flag = (to == Fmt::Csv) ? L"-csv" : L"-json";
-    std::wstring cmd = L"\"" + duck + L"\" " + flag +
-        L" -c \"SELECT * FROM read_parquet('" + fwd(p) + L"') LIMIT 100000\"";
-
     std::string out;
-    int code = run_capture(cmd, out);
-    if (code != 0) {
-        std::string m = out.empty() ? "duckdb kon niet gestart worden" : out;
-        msg(L"Parquet preview mislukt:\n\n" + widen(m.substr(0, 2000)), MB_ICONWARNING);
-        return;
-    }
-    if (to == Fmt::Yaml) {
-        std::string y = json_to_yaml(out);
-        if (is_conv_err(y)) { msg(L"JSON \x2192 YAML mislukt:\n\n" + widen(y.substr(1)), MB_ICONWARNING); return; }
-        out.swap(y);
-    }
+    std::string err = parquet::read_parquet(duck, p, to, 100000, out);
+    if (!err.empty()) { msg(L"Parquet preview mislukt:\n\n" + widen(err), MB_ICONWARNING); return; }
     SendMessage(g_npp._nppHandle, NPPM_MENUCOMMAND, 0, IDM_FILE_NEW);  // new tab
     set_text(out);
 }
@@ -447,8 +386,7 @@ static void cmd_parquet_json() { preview_parquet(Fmt::Json); }
 static void cmd_parquet_yaml() { preview_parquet(Fmt::Yaml); }
 
 // CSV / JSON / YAML -> Parquet : write <current dir>\<name>.parquet from the
-// current buffer (unsaved edits included — the buffer is spilled to a temp
-// file). YAML is converted to JSON first.
+// current buffer (unsaved edits included). YAML is converted to JSON first.
 static void export_parquet(Fmt from) {
     std::wstring p = current_doc_path();
     std::wstring ext = lower_ext(p);
@@ -464,48 +402,18 @@ static void export_parquet(Fmt from) {
     std::wstring duck = duckdb_or_warn();
     if (duck.empty()) return;
 
-    // Bytes and temp extension DuckDB will read: YAML is pre-converted to JSON.
-    std::string payload = get_text();
-    std::wstring tmp_ext = (from == Fmt::Csv) ? L".csv" : L".json";
-    if (from == Fmt::Yaml) {
-        if (!yaml_convert_available()) { msg(widen(yaml_validate("")), MB_ICONWARNING); return; }
-        std::string j = yaml_to_json(payload);
-        if (is_conv_err(j)) { msg(L"YAML \x2192 JSON mislukt:\n\n" + widen(j.substr(1)), MB_ICONWARNING); return; }
-        payload.swap(j);
-    }
-
-    wchar_t tdir[MAX_PATH] = {}, tin[MAX_PATH] = {};
-    GetTempPathW(MAX_PATH, tdir);
-    GetTempFileNameW(tdir, L"ft_", 0, tin);
-    std::wstring in = tin; DeleteFileW(tin); in += tmp_ext;
-    {
-        HANDLE h = CreateFileW(in.c_str(), GENERIC_WRITE, 0, nullptr,
-                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (h == INVALID_HANDLE_VALUE) { msg(L"Kon geen tijdelijk bestand schrijven.", MB_ICONWARNING); return; }
-        DWORD wr = 0;
-        WriteFile(h, payload.data(), (DWORD)payload.size(), &wr, nullptr);
-        CloseHandle(h);
-    }
-
     // Output: <same folder>\<same stem>.parquet, or the temp folder if unsaved.
     std::wstring out;
-    if (!p.empty() && p.find_last_of(L"\\/") != std::wstring::npos)
+    if (!p.empty() && p.find_last_of(L"\\/") != std::wstring::npos) {
         out = p.substr(0, p.find_last_of(L'.')) + L".parquet";
-    else
+    } else {
+        wchar_t tdir[MAX_PATH] = {};
+        GetTempPathW(MAX_PATH, tdir);
         out = std::wstring(tdir) + L"export.parquet";
-
-    std::wstring reader = (tmp_ext == L".csv") ? L"read_csv_auto" : L"read_json_auto";
-    std::wstring cmd = L"\"" + duck + L"\" -c \"COPY (SELECT * FROM " + reader +
-        L"('" + fwd(in) + L"')) TO '" + fwd(out) + L"' (FORMAT PARQUET)\"";
-
-    std::string res;
-    int code = run_capture(cmd, res);
-    DeleteFileW(in.c_str());
-    if (code != 0) {
-        std::string m = res.empty() ? "duckdb kon niet gestart worden" : res;
-        msg(L"Omzetten naar Parquet mislukt:\n\n" + widen(m.substr(0, 2000)), MB_ICONWARNING);
-        return;
     }
+
+    std::string err = parquet::write_parquet(duck, get_text(), from, out);
+    if (!err.empty()) { msg(L"Omzetten naar Parquet mislukt:\n\n" + widen(err), MB_ICONWARNING); return; }
     msg(L"Parquet geschreven:\n\n" + out, MB_ICONINFORMATION);
 }
 

@@ -29,12 +29,20 @@ set "YAMLSRC=vendor\libyaml\src\*.c"
 
 :: -- Compile and link (options before sources to avoid D9026) --
 cl /LD /O2 /EHsc /std:c++17 /MT /utf-8 %YAMLFLAGS% ^
-   src\dllmain.cpp src\settings_dialog.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp %YAMLSRC% ^
+   src\dllmain.cpp src\settings_dialog.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp src\parquet_tools.cpp src\settings_io.cpp %YAMLSRC% ^
    build\settings.res ^
    /Fe:build\FileTools.dll ^
    /Fo:build\ ^
    /link user32.lib shell32.lib comctl32.lib comdlg32.lib
 if errorlevel 1 ( echo Build failed & exit /b 1 )
+
+:: -- CLI: filetools.exe, same modules, no Notepad++ needed --
+cl /O2 /EHsc /std:c++17 /MT /utf-8 %YAMLFLAGS% ^
+   src\cli_main.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp src\parquet_tools.cpp src\settings_io.cpp %YAMLSRC% ^
+   /Fe:buildiletools.exe ^
+   /Fo:build\ ^
+   /link user32.lib
+if errorlevel 1 ( echo CLI build failed & exit /b 1 )
 
 :: -- Close Notepad++ --
 taskkill /f /im notepad++.exe >nul 2>&1
@@ -48,6 +56,8 @@ copy /y "build\FileTools.dll" "%DST%\FileTools.dll"
 if errorlevel 1 ( echo Copy failed & exit /b 1 )
 copy /y "src\help.txt" "%DST%\help.txt"
 if errorlevel 1 ( echo Help file copy failed & exit /b 1 )
+copy /y "buildiletools.exe" "%DST%iletools.exe"
+if errorlevel 1 ( echo CLI copy failed & exit /b 1 )
 
 :: -- Restart Notepad++ --
 :: Via explorer.exe, so Notepad++ never inherits this (elevated) prompt's

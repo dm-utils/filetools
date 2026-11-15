@@ -30,5 +30,12 @@ cl /nologo /O2 /EHsc /std:c++17 /utf-8 %YAMLFLAGS% ^
    /Fo:build\harness\
 if errorlevel 1 ( echo Build failed & exit /b 1 )
 
+cl /nologo /O2 /EHsc /std:c++17 /utf-8 %YAMLFLAGS% ^
+   src\cli_main.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp src\parquet_tools.cpp src\settings_io.cpp %YAMLSRC% ^
+   /Fe:build\harness\filetools.exe ^
+   /Fo:build\harness\ ^
+   /link user32.lib
+if errorlevel 1 ( echo CLI build failed & exit /b 1 )
+
 echo Harness build complete.
 exit /b 0

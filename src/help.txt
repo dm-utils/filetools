@@ -133,6 +133,46 @@ Settings persist in %APPDATA%\Notepad++\plugins\config\FileTools.ini;
 profiles are separate .json files under ...\config\FileTools_profiles\.
 
 
+COMMAND LINE: filetools.exe             batches, no Notepad++ needed
+===========================
+The same operations as a console program, for many files at once or in
+scripts. It ships in the plugin folder (plugins\FileTools\filetools.exe);
+copy it anywhere or put the folder on your PATH.
+
+  filetools <operation> [options] [file|pattern ...]
+  filetools list                        all operations
+  filetools --help                      all options
+
+  filetools yaml-tidy config\*.yaml --in-place
+  filetools csv-to-json data\**\*.csv --out-dir json\
+  filetools json-pretty *.json --indent 4 --check
+  type x.csv | filetools csv-align      (no files: stdin -> stdout)
+
+Patterns are expanded by filetools itself: * and ? within a name, ** for any
+folder depth. With one file and no option the result goes to stdout.
+
+  --in-place       rewrite the file; a conversion (csv-to-json, ...) writes
+                   <name>.<new extension> next to the source instead
+  --out-dir <dir>  write under <dir>, keeping the folder structure below the
+                   fixed part of the pattern
+  --check          write nothing; list the files that would change, exit 1 if any
+
+Files that would not change are left alone. One failing file does not stop
+the batch: it is reported, the rest continues, and the summary line at the
+end says how many were written, unchanged and failed. Exit codes: 0 ok,
+1 --check found changes or yaml-validate found invalid files, 2 a file
+failed, 3 wrong usage.
+
+Defaults come from the plugin's FileTools.ini (--ini <path> for another file,
+--no-ini for the built-in defaults); --indent, --sort-keys, --yaml-indent,
+--tab-width, --max-blank, --quote always|needed and --col <n> (csv-sort,
+1-based) override them. Parquet operations need duckdb.exe (PATH, next to
+filetools.exe, Settings -> Parquet, or --duckdb <path>) and always work on
+files: csv/json/yaml-to-parquet writes <name>.parquet next to the source (or
+in --out-dir); parquet-to-csv/json/yaml prints or writes the text (--limit n
+for the first n rows only).
+
+
 NOT YET IMPLEMENTED
 -------------------
 YAML sort keys / anchor expansion / lint, CSV filter rows.

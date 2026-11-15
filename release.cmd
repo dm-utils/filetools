@@ -2,8 +2,8 @@
 setlocal
 cd /d "%~dp0"
 
-:: Builds FileTools.dll for each Notepad++ flavour (x64, x86 = Win32, arm64)
-:: and zips it with help.txt into release_staging\FileTools.zip (x64) or
+:: Builds FileTools.dll and filetools.exe (CLI) for each Notepad++ flavour
+:: (x64, x86 = Win32, arm64) and zips them with help.txt into release_staging\FileTools.zip (x64) or
 :: FileTools_<arch>.zip, for the GitHub release and the plugin lists (pl.x64.json, pl.x86.json, pl.arm64.json).
 :: Prints the SHA-256 of each zip, which the plugin lists use as "id".
 ::   release.cmd              x64 only (see below to build all three)
@@ -66,17 +66,25 @@ rc.exe /nologo /fo "%OUT%\settings.res" src\settings.rc
 if errorlevel 1 ( echo Resource compile failed & exit /b 1 )
 cl /nologo /LD /O2 /EHsc /std:c++17 /MT /utf-8 /W3 ^
    /I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML ^
-   src\dllmain.cpp src\settings_dialog.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp ^
+   src\dllmain.cpp src\settings_dialog.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp src\parquet_tools.cpp src\settings_io.cpp ^
    vendor\libyaml\src\*.c ^
    "%OUT%\settings.res" ^
    /Fe:"%OUT%\FileTools.dll" ^
    /Fo:"%OUT%\\" ^
    /link user32.lib shell32.lib comctl32.lib comdlg32.lib
 if errorlevel 1 ( echo Build failed for %ARCH% & exit /b 1 )
+cl /nologo /O2 /EHsc /std:c++17 /MT /utf-8 /W3 ^
+   /I vendor /I vendor\libyaml\include /DHAVE_CONFIG_H /DYAML_DECLARE_STATIC /DHAVE_LIBYAML ^
+   src\cli_main.cpp src\yaml_tidy.cpp src\yaml_convert.cpp src\json_tools.cpp src\csv_tools.cpp src\parquet_tools.cpp src\settings_io.cpp ^
+   vendor\libyaml\src\*.c ^
+   /Fe:"%OUT%iletools.exe" ^
+   /Fo:"%OUT%\\" ^
+   /link user32.lib
+if errorlevel 1 ( echo CLI build failed for %ARCH% & exit /b 1 )
 set "ZIP=FileTools_%ARCH%.zip"
 if "%ARCH%"=="x64" set "ZIP=FileTools.zip"
 del /q "release_staging\%ZIP%" 2>nul
-powershell -NoProfile -Command "Compress-Archive -Path '%OUT%\FileTools.dll','src\help.txt' -DestinationPath 'release_staging\%ZIP%'"
+powershell -NoProfile -Command "Compress-Archive -Path '%OUT%\FileTools.dll','%OUT%iletools.exe','src\help.txt' -DestinationPath 'release_staging\%ZIP%'"
 if errorlevel 1 ( echo Zip failed for %ARCH% & exit /b 1 )
 endlocal
 exit /b 0
